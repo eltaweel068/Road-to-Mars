@@ -31,7 +31,7 @@
 
 **"Road to Mars"** is an authoritative browser-based multiplayer survival and space mission design game built for the **2026 NASA Space Apps Challenge**. 
 
-Designed for **1 to 6 crewmates** (playable solo or with up to 6 players joined over local network WebSockets), players work together to maintain a spacecraft en route from Earth to Mars. The crew must balance finite resources: **Delta-V ($\Delta v$) Fuel**, **Oxygen ($O_2$)**, **Food Supplies**, **Ship Mass ($kg$)**, and **Hull Integrity**. 
+Designed for **1 to 6 crewmates** (playable solo or with up to 6 players joined over local network WebSockets), players work together to maintain a spacecraft en route from Earth to Mars. The crew must balance finite resources: **Delta-V ($\Delta v$) Fuel**, **Oxygen ($O_2$)**, **Clean Water Reserve ($H_2O$)**, **Carbon Dioxide ($CO_2$)**, **Food Supplies**, **Ship Mass ($kg$)**, and **Hull Integrity**. Reaching Mars triggers **Endless Free-Play Mode** for continued orbital exploration. 
 
 When engineering failures, asteroid impacts, or critical supply shortages strike, the crew must call **Emergency Meetings** to debate, vote, and—if necessary—eject mass or crewmates through the airlock to ensure the survival of the mission.
 
@@ -71,14 +71,28 @@ The game is structured as an authoritative server architecture with zero client-
 
 ### 1. Inside the Spacecraft (2D Top-Down Simulation)
 Inside the ship, players control authentic crewmate beans walking through a massive **3200x2000** interconnected spaceship hull inspired by *The Skeld*:
-- **Proximity-Based Task Consoles**: Approach consoles to perform mission-critical engineering tasks (O2 scrubber calibration, reactor alignment, circuit breaker rewiring, communications dish targeting).
+- **13 Proximity-Based Interactive Task Consoles**: Approach consoles to complete full interactive Canvas mini-games:
+  1. `wires`: Wire repair and circuit routing.
+  2. `o2_filter`: Hydroponic vegetable farm (potatoes, lettuce, tomatoes) & O2 production.
+  3. `water_recycle`: ECLSS 3-stage water filtration and clean H2O pumping.
+  4. `co2_scrubber`: Zeolite canister CO2 purging and O2 partial pressure regulation.
+  5. `nav`: Radar alignment and 3-axis IMU gyro calibration.
+  6. `cargo`: Hull plate welding and cargo stabilization.
+  7. `science`: Deep space satellite telemetry alignment.
+  8. `cheese_grill`: Zero-G Romy cheese melter and sandwich press.
+  9. `reactor_cool`: Boron cryo control rods & coolant regulation.
+  10. `shields_prime`: Hexagonal deflector shield capacitor charging.
+  11. `fuel_synth`: Sabatier fuel synthesis & propellant pump.
+  12. `engine_align`: Thruster gimbal alignment with Mars trajectory.
+  13. `medbay_scan`: Full bio-radiation crewmate health scanner.
 - **Physical Collision & Y-Sort**: Crewmates, consoles, tables, and machinery are dynamically Y-sorted so characters naturally walk behind or in front of ship equipment.
 - **Close Follow Camera (`1.35x` zoom)**: The viewport tracks your crewmate closely, revealing corridors and rooms organically as you navigate the ship.
 - **Minimap Overlay (`M` key)**: Displays a full architectural blueprint of all 10 compartments, task alerts (`!`), and live crewmate positioning.
 
 ### 2. At the Pilot Console (3D Space Flight Simulator)
 Any crewmate who walks into the Navigation Room can press **`PILOT 3D`** (or hotkey **`P`**) to claim the pilot seat and transition seamlessly into a full **3D Space Flight & Orbital Cockpit Simulator**:
-- **Real 3D GLTF Spacecraft**: Renders the spacecraft (`craft_cargoA.glb`) with animated glowing engine thruster plumes.
+- **Real 3D GLTF Spacecraft**: Renders high-speed interceptor spacecraft with metallic PBR standard materials (`metalness: 0.82`, `roughness: 0.24`) and animated glowing engine thruster plumes.
+- **Compact Aerospace Flight Deck**: Ultra-compact sci-fi HUD deck (~72px) with live micro vital bars (Hull, Fuel, O2), attitude readout (`HDG`, `Pitch`, `Roll`), dedicated 90×90px 3-Axis IMU Gyro HUD, and minimize toggle `[▾/▴]`.
 - **Dual Camera Flight Modes (`C` key)**:
   - **3rd-Person Chase Cam**: Trailing camera with smooth positional lag, dynamic banking, and pitch roll response during flight maneuvers.
   - **1st-Person Cockpit POV**: Inside-the-windshield view featuring holographic HUD reticles, target lock boxes on Mars and the Moon, and real-time distance/speed readouts.
@@ -210,8 +224,9 @@ Then open your browser to:
 http://localhost:3000
 ```
 
-- **Solo Mode**: Click **Create Room** -> **Start Mission** (1 player can launch immediately).
-- **LAN Multiplayer**: Share your local network IP with friends on the same Wi-Fi (`http://<YOUR_LOCAL_IP>:3000`).
+- **Solo Mode**: Click **Create Room** -> **Launch Expedition** (1 player can launch immediately).
+- **Same Wi-Fi / LAN Multiplayer**: The game automatically detects your local Wi-Fi IP address (e.g. `http://192.168.1.14:3000`). Click **🔗 LINK** inside the hangar or copy the displayed invite link (`http://192.168.1.14:3000/?room=CODE`) to join instantly from other PCs or phones on the network.
+- **Internet Multiplayer**: Run `npx localtunnel --port 3000` to share a public HTTPS link with friends outside your network.
 - **Custom Port**: Run with `PORT=8080 npm start`.
 
 ---
