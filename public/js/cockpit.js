@@ -139,47 +139,238 @@ window.RTM.Cockpit = (function () {
   var laserMaterial = null;
   var cameraShakeTime = 0;
   var asteroidNoiseTexture = null;
+  var asteroidThermalTexture = null;
+  var lootOrbs = [];
+  var spaceDust = null;
+  var DUST_COUNT = 250;
+  var nebulaSkybox = null;
 
-  function ensureSphericalUVs(geometry) {
-    if (!geometry) return geometry;
-    var pos = geometry.getAttribute('position');
-    if (!pos) return geometry;
+  function prepareRealisticAsteroidGeometry(geometry) {
+    geometry.center();
+    geometry.computeBoundingSphere();
+    var r = (geometry.boundingSphere && geometry.boundingSphere.radius) || 1;
+    var scale = 1 / r;
+    geometry.scale(scale, scale, scale);
+
+    var pos = geometry.attributes.position;
     var count = pos.count;
     var uvs = new Float32Array(count * 2);
+
     for (var i = 0; i < count; i++) {
-      var x = pos.getX(i);
-      var y = pos.getY(i);
-      var z = pos.getZ(i);
-      var len = Math.hypot(x, y, z) || 1.0;
-      var nx = x / len;
-      var ny = y / len;
-      var nz = z / len;
+      var vx = pos.getX(i), vy = pos.getY(i), vz = pos.getZ(i);
+      var len = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1;
+      var nx = vx / len, ny = vy / len, nz = vz / len;
+
+      // Spherical UV projection so bump/roughness maps wrap cleanly on NASA .stl scans
       var u = 0.5 + Math.atan2(nz, nx) / (2 * Math.PI);
       var v = 0.5 - Math.asin(Math.max(-1, Math.min(1, ny))) / Math.PI;
-      uvs[i * 2] = u;
-      uvs[i * 2 + 1] = v;
+      uvs[i * 2] = u * 3.0;
+      uvs[i * 2 + 1] = v * 3.0;
+
+      // Micro-ridge rocky perturbation
+      var crag = 1.0 + 0.06 * Math.sin(nx * 14.0 + ny * 9.0) * Math.cos(nz * 12.0);
+      pos.setXYZ(i, vx * crag, vy * crag, vz * crag);
     }
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-    geometry.uvsNeedUpdate = true;
+    geometry.computeVertexNormals();
     return geometry;
   }
 
+  function createAsteroidMaterial(noiseTex, crackTex) {
+    return new THREE.MeshStandardMaterial({
+      color: 0x6e685f,
+      roughness: 0.86,
+      metalness: 0.24,
+      bumpMap: noiseTex || null,
+      bumpScale: 1.6,
+      emissive: new THREE.Color(0xff3b00),
+      emissiveMap: crackTex || noiseTex || null,
+      emissiveIntensity: 0.0 // Ramps up to 2.5 as the asteroid takes laser hits!
+    });
+  }
+
   function getAsteroidMaterial(colorHex) {
-    if (!asteroidNoiseTexture && typeof THREE.TextureLoader !== 'undefined') {
-      var loader = new THREE.TextureLoader();
+    var loader = (typeof THREE.TextureLoader !== 'undefined') ? new THREE.TextureLoader() : null;
+    if (loader && !asteroidNoiseTexture) {
       asteroidNoiseTexture = loader.load('/assets/kenney_planets/Parts/noise05.png');
       asteroidNoiseTexture.wrapS = THREE.RepeatWrapping;
       asteroidNoiseTexture.wrapT = THREE.RepeatWrapping;
       asteroidNoiseTexture.repeat.set(2.5, 2.5);
     }
-    return new THREE.MeshStandardMaterial({
-      color: colorHex || 0x8a8894,
-      map: asteroidNoiseTexture,
-      bumpMap: asteroidNoiseTexture,
-      bumpScale: 1.8,
-      roughness: 0.82,
-      metalness: 0.25
+    if (loader && !asteroidThermalTexture) {
+      asteroidThermalTexture = loader.load('/assets/kenney_planets/Parts/noise02.png');
+      asteroidThermalTexture.wrapS = THREE.RepeatWrapping;
+      asteroidThermalTexture.wrapT = THREE.RepeatWrapping;
+      asteroidThermalTexture.repeat.set(2.0, 2.0);
+    }
+    return createAsteroidMaterial(asteroidNoiseTexture, asteroidThermalTexture);
+  }
+
+  function createNebulaSkybox() {
+    var geo = new THREE.SphereGeometry(4200, 32, 32);
+    var mat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: [
+        'varying vec3 vWorldPos;',
+        'void main() {',
+        '  vWorldPos = position;',
+        '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+        '}'
+      ].join('\n'),
+      fragmentShader: [
+        'varying vec3 vWorldPos;',
+        'uniform float uTime;',
+        'float hash(vec3 p) {',
+        '  p = fract(p * 0.3183099 + 0.1);',
+        '  p *= 17.0;',
+        '  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));',
+        '}',
+        'float noise(vec3 x) {',
+        '  vec3 i = floor(x); vec3 f = fract(x);',
+        '  f = f * f * (3.0 - 2.0 * f);',
+        '  return mix(mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x),',
+        '                 mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),',
+        '             mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x),',
+        '                 mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y), f.z);',
+        '}',
+        'void main() {',
+        '  vec3 dir = normalize(vWorldPos);',
+        '  float n1 = noise(dir * 3.5 + uTime * 0.01);',
+        '  float n2 = noise(dir * 8.0 - uTime * 0.015);',
+        '  float neb = smoothstep(0.38, 0.78, n1 * 0.65 + n2 * 0.35);',
+        '  vec3 deepSpace = vec3(0.01, 0.015, 0.04);',
+        '  vec3 colA = vec3(0.08, 0.28, 0.55);',
+        '  vec3 colB = vec3(0.52, 0.12, 0.38);',
+        '  vec3 col = mix(deepSpace, mix(colA, colB, n2), neb * 0.65);',
+        '  gl_FragColor = vec4(col, 1.0);',
+        '}'
+      ].join('\n')
     });
+    return new THREE.Mesh(geo, mat);
+  }
+
+  function createFresnelHalo(radius, hexColor) {
+    var geo = new THREE.SphereGeometry(radius * 1.14, 32, 32);
+    var mat = new THREE.ShaderMaterial({
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.FrontSide,
+      uniforms: { uColor: { value: new THREE.Color(hexColor) } },
+      vertexShader: [
+        'varying vec3 vNormal;',
+        'varying vec3 vViewPosition;',
+        'void main() {',
+        '  vNormal = normalize(normalMatrix * normal);',
+        '  vec4 mvPos = modelViewMatrix * vec4(position, 1.0);',
+        '  vViewPosition = -mvPos.xyz;',
+        '  gl_Position = projectionMatrix * mvPos;',
+        '}'
+      ].join('\n'),
+      fragmentShader: [
+        'varying vec3 vNormal;',
+        'varying vec3 vViewPosition;',
+        'uniform vec3 uColor;',
+        'void main() {',
+        '  vec3 viewDir = normalize(vViewPosition);',
+        '  float rim = 1.0 - max(0.0, dot(viewDir, vNormal));',
+        '  float glow = pow(rim, 3.2) * 1.35;',
+        '  gl_FragColor = vec4(uColor, glow);',
+        '}'
+      ].join('\n')
+    });
+    return new THREE.Mesh(geo, mat);
+  }
+
+  function buildSpaceDust() {
+    var geo = new THREE.BufferGeometry();
+    var positions = new Float32Array(DUST_COUNT * 6);
+    for (var i = 0; i < DUST_COUNT; i++) {
+      var x = (Math.random() - 0.5) * 240;
+      var y = (Math.random() - 0.5) * 140;
+      var z = -Math.random() * 260;
+      var len = 4.0;
+      positions[i * 6] = x;
+      positions[i * 6 + 1] = y;
+      positions[i * 6 + 2] = z;
+      positions[i * 6 + 3] = x;
+      positions[i * 6 + 4] = y;
+      positions[i * 6 + 5] = z + len;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    var mat = new THREE.LineBasicMaterial({
+      color: 0x38fedc,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending
+    });
+    spaceDust = new THREE.LineSegments(geo, mat);
+    scene.add(spaceDust);
+  }
+
+  function updateSpaceDust(dt) {
+    if (!spaceDust || !camera) return;
+    var posAttr = spaceDust.geometry.getAttribute('position');
+    var positions = posAttr.array;
+    var speedMultiplier = boost ? 320 : (throttle > 0 ? 140 * throttle : 35);
+    var streakLen = boost ? 26.0 : (throttle > 0 ? 9.0 * throttle : 3.5);
+
+    for (var i = 0; i < DUST_COUNT; i++) {
+      var idx = i * 6;
+      positions[idx + 2] += speedMultiplier * dt;
+      positions[idx + 5] = positions[idx + 2] + streakLen;
+
+      if (positions[idx + 2] > camera.position.z + 10) {
+        var rx = camera.position.x + (Math.random() - 0.5) * 220;
+        var ry = camera.position.y + (Math.random() - 0.5) * 140;
+        var rz = camera.position.z - 220 - Math.random() * 60;
+        positions[idx] = rx;
+        positions[idx + 1] = ry;
+        positions[idx + 2] = rz;
+        positions[idx + 3] = rx;
+        positions[idx + 4] = ry;
+        positions[idx + 5] = rz + streakLen;
+      }
+    }
+    posAttr.needsUpdate = true;
+  }
+
+  function spawnFireballFlash(pos) {
+    var flashLight = new THREE.PointLight(0xff6600, 8.0, 140);
+    flashLight.position.copy(pos);
+    scene.add(flashLight);
+    var timer = 0.4;
+    function fadeFlash() {
+      timer -= 0.035;
+      if (timer > 0) {
+        flashLight.intensity = Math.max(0, (timer / 0.4) * 8.0);
+        requestAnimationFrame(fadeFlash);
+      } else {
+        scene.remove(flashLight);
+      }
+    }
+    fadeFlash();
+  }
+
+  function spawnLootOrbs(pos) {
+    for (var i = 0; i < 2; i++) {
+      var orbGeo = new THREE.SphereGeometry(1.2, 12, 12);
+      var orbMat = new THREE.MeshBasicMaterial({
+        color: i === 0 ? 0x38fedc : 0xf5f557
+      });
+      var orb = new THREE.Mesh(orbGeo, orbMat);
+      orb.position.copy(pos).add(new THREE.Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6));
+      orb.userData = {
+        type: i === 0 ? 'science' : 'fuel',
+        birthTime: performance.now(),
+        initialPos: orb.position.clone(),
+        duration: 800
+      };
+      scene.add(orb);
+      lootOrbs.push(orb);
+    }
   }
 
   function preloadNasaModels(onReady) {
@@ -192,9 +383,7 @@ window.RTM.Cockpit = (function () {
 
     NASA_MODELS.forEach(function (item) {
       stlLoader.load(item.url, function (geometry) {
-        geometry.center();
-        geometry.computeVertexNormals();
-        ensureSphericalUVs(geometry);
+        prepareRealisticAsteroidGeometry(geometry);
         nasaGeometryCache[item.id] = {
           geometry: geometry,
           meta: item
@@ -235,8 +424,24 @@ window.RTM.Cockpit = (function () {
 
     var forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion).normalize();
 
-    var boltL = createLaserBolt(leftWorld, forwardDir, shipGroup.quaternion);
-    var boltR = createLaserBolt(rightWorld, forwardDir, shipGroup.quaternion);
+    // Auto-aim magnetic assist (within ~18 degrees cone)
+    var aimDir = forwardDir.clone();
+    var closestDist = 450;
+    for (var a = 0; a < activeObstacles.length; a++) {
+      var obst = activeObstacles[a];
+      var toObst = obst.position.clone().sub(shipGroup.position);
+      var dist = toObst.length();
+      if (dist < closestDist) {
+        var dirToObst = toObst.normalize();
+        if (forwardDir.dot(dirToObst) > 0.94) {
+          aimDir.lerp(dirToObst, 0.45).normalize();
+          break;
+        }
+      }
+    }
+
+    var boltL = createLaserBolt(leftWorld, aimDir, shipGroup.quaternion);
+    var boltR = createLaserBolt(rightWorld, aimDir, shipGroup.quaternion);
 
     scene.add(boltL);
     scene.add(boltR);
@@ -244,7 +449,7 @@ window.RTM.Cockpit = (function () {
 
     // Camera subtle recoil
     if (camera) {
-      camera.position.z += 0.35;
+      camera.position.z += 0.25;
     }
   }
 
@@ -316,19 +521,33 @@ window.RTM.Cockpit = (function () {
   }
 
   function createLaserBolt(pos, dir, quat) {
-    var geo = new THREE.CylinderGeometry(0.22, 0.22, 7.5, 8);
-    geo.rotateX(Math.PI / 2);
-    if (!laserMaterial) {
-      laserMaterial = new THREE.MeshBasicMaterial({ color: 0x38fedc });
-    }
-    var mesh = new THREE.Mesh(geo, laserMaterial);
-    mesh.position.copy(pos);
-    mesh.quaternion.copy(quat);
-    mesh.userData = {
-      velocity: dir.clone().multiplyScalar(420),
+    var group = new THREE.Group();
+    // Inner white plasma core
+    var coreGeo = new THREE.CylinderGeometry(0.14, 0.14, 8.5, 8);
+    coreGeo.rotateX(Math.PI / 2);
+    var coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    var coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    group.add(coreMesh);
+
+    // Outer additive cyan halo
+    var haloGeo = new THREE.CylinderGeometry(0.36, 0.36, 9.2, 8);
+    haloGeo.rotateX(Math.PI / 2);
+    var haloMat = new THREE.MeshBasicMaterial({
+      color: 0x38fedc,
+      transparent: true,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending
+    });
+    var haloMesh = new THREE.Mesh(haloGeo, haloMat);
+    group.add(haloMesh);
+
+    group.position.copy(pos);
+    group.quaternion.copy(quat);
+    group.userData = {
+      velocity: dir.clone().multiplyScalar(440),
       distanceTraveled: 0
     };
-    return mesh;
+    return group;
   }
 
   function spawnObstacleWave() {
@@ -465,36 +684,48 @@ window.RTM.Cockpit = (function () {
   }
 
   function spawnShockwaveRing(pos) {
-    var geo = new THREE.TorusGeometry(3.5, 0.35, 8, 28);
+    var geo = new THREE.RingGeometry(1, 2.4, 32);
     var mat = new THREE.MeshBasicMaterial({
       color: 0x38fedc,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.95,
+      side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending
     });
     var ring = new THREE.Mesh(geo, mat);
     ring.position.copy(pos);
-    ring.rotation.x = Math.PI / 2;
-    ring.userData = { life: 0.5, maxLife: 0.5, scaleSpeed: 24 };
+    if (camera) ring.lookAt(camera.position);
+    ring.userData = { life: 0.45, maxLife: 0.45, currentScale: 1.0, maxScale: 22.0 };
     scene.add(ring);
     shockwaveRings.push(ring);
   }
 
   function spawnFragments(parentObst) {
-    var count = 3 + Math.floor(Math.random() * 2);
+    spawnFireballFlash(parentObst.position);
+    spawnLootOrbs(parentObst.position);
+    var radius = (parentObst.userData && parentObst.userData.radius) || 4.5;
+    var count = 6 + Math.floor(Math.random() * 3);
     for (var i = 0; i < count; i++) {
-      var fragGeo = new THREE.DodecahedronGeometry(1.6 + Math.random() * 0.8);
+      var fragGeo = new THREE.DodecahedronGeometry(radius * 0.28, 1);
       var fragMat = new THREE.MeshStandardMaterial({
-        color: 0x8a847a,
-        roughness: 0.9
+        color: 0x6e6860,
+        roughness: 0.85,
+        emissive: 0xff3b00,
+        emissiveIntensity: 0.85
       });
       var frag = new THREE.Mesh(fragGeo, fragMat);
       frag.position.copy(parentObst.position);
+      var dir = new THREE.Vector3(
+        (Math.random() - 0.5),
+        (Math.random() - 0.5),
+        (Math.random() - 0.5)
+      ).normalize();
+      var speed = 18 + Math.random() * 24; // 18..42
       frag.userData = {
-        vx: (Math.random() - 0.5) * 35,
-        vy: (Math.random() - 0.5) * 35,
-        vz: (Math.random() - 0.5) * 35,
-        rotSpeed: (Math.random() - 0.5) * 4.0,
+        vx: dir.x * speed,
+        vy: dir.y * speed,
+        vz: dir.z * speed,
+        rotSpeed: (Math.random() - 0.5) * 8.0,
         life: 3.5
       };
       scene.add(frag);
@@ -558,11 +789,14 @@ window.RTM.Cockpit = (function () {
         if (dist < obst.userData.radius + 2.0) {
           obst.userData.hp--;
 
-          if (obst.userData.hp === 1) {
-            // First Hit: Knockback + Orange Flash + Sparks
+          if (obst.userData.hp > 0) {
+            // First Hit: Knockback + Orange Flash + Sparks + Emissive crack ramp
             if (RTM.Audio) RTM.Audio.play('hit', 0.7);
-            if (obst.material && obst.material.emissive) {
-              obst.material.emissive.setHex(0xff7722);
+            if (obst.material) {
+              if (obst.material.emissive) {
+                obst.material.emissive.setHex(0xff3b00);
+              }
+              obst.material.emissiveIntensity = 1.8 * (1 - obst.userData.hp / obst.userData.maxHp);
               obst.userData.flashTimer = 0.15;
             }
             obst.position.addScaledVector(laser.userData.velocity.clone().normalize(), 6.0);
@@ -570,8 +804,12 @@ window.RTM.Cockpit = (function () {
             obst.userData.rotSpeedY *= 2.2;
             createExplosionParticles(laser.position, 10);
           } else if (obst.userData.hp <= 0) {
-            // Second Hit: Shatter into fragments + shockwave + rewards
-            if (RTM.Audio) RTM.Audio.play('bang', 0.85);
+            // Shatter into fragments + shockwave + rewards
+            if (RTM.Audio) {
+              if (!RTM.Audio.play('explosion', 0.95)) {
+                RTM.Audio.play('bang', 0.95);
+              }
+            }
             createExplosionParticles(obst.position, 25);
             spawnShockwaveRing(obst.position);
             spawnFragments(obst);
@@ -669,6 +907,34 @@ window.RTM.Cockpit = (function () {
       if (missileHit) continue;
     }
 
+    // 1c. Mineral Science / Fuel Loot Orbs Tractor Beam
+    for (var lo = lootOrbs.length - 1; lo >= 0; lo--) {
+      var orb = lootOrbs[lo];
+      var age = (performance.now() - orb.userData.birthTime) / 1000;
+      if (shipGroup) {
+        var toShipPos = shipGroup.position.clone();
+        orb.position.lerp(toShipPos, Math.min(1.0, dt * 6.5));
+        var orbDist = orb.position.distanceTo(shipGroup.position);
+        if (orbDist < 5.0 || age > 2.5) {
+          if (RTM.Audio) RTM.Audio.play('hit', 0.5);
+          if (RTM.Net) {
+            var st = RTM.Net.getState();
+            if (orb.userData.type === 'science') {
+              st.telemetry.science = (st.telemetry.science || 0) + 10;
+            } else {
+              st.telemetry.fuel = Math.min(100, (st.telemetry.fuel || 0) + 2);
+            }
+          }
+          if (RTM.HUD && RTM.HUD.showNotification) {
+            RTM.HUD.showNotification(orb.userData.type === 'science' ? '+10 SCIENCE EXTRACTED!' : '+2% REFUEL TRACTORED!', 'success');
+          }
+          scene.remove(orb);
+          lootOrbs.splice(lo, 1);
+          continue;
+        }
+      }
+    }
+
     // 2. Continuous Spawning & Movement of Asteroids
     spawnContinuousAsteroids();
 
@@ -725,9 +991,11 @@ window.RTM.Cockpit = (function () {
     // 3. Shockwave Rings
     for (var r = shockwaveRings.length - 1; r >= 0; r--) {
       var ring = shockwaveRings[r];
-      ring.scale.addScalar(ring.userData.scaleSpeed * dt);
       ring.userData.life -= dt;
-      ring.material.opacity = Math.max(0, ring.userData.life / ring.userData.maxLife);
+      var progress = 1.0 - Math.max(0, ring.userData.life / ring.userData.maxLife);
+      var sc = ring.userData.currentScale + (ring.userData.maxScale - ring.userData.currentScale) * progress;
+      ring.scale.set(sc, sc, sc);
+      ring.material.opacity = Math.max(0, (1.0 - progress) * 0.95);
       if (ring.userData.life <= 0) {
         scene.remove(ring);
         shockwaveRings.splice(r, 1);
@@ -1038,11 +1306,16 @@ window.RTM.Cockpit = (function () {
     if (!root) return;
     root.innerHTML = [
       '<div class="cockpit-vignette"></div>',
+      '<div id="cockpitLockonBox" style="display:none; position:absolute; pointer-events:none; border:2px solid #ff3344; width:48px; height:48px; transform:translate(-50%, -50%); border-radius:8px; box-shadow:0 0 14px rgba(255,51,68,0.7); z-index:12;">' +
+      '  <div id="cockpitLockonText" style="position:absolute; top:-22px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:bold; color:#ff3344; white-space:nowrap; text-shadow:1px 1px 0 #000;">TARGET LOCK</div>' +
+      '  <div id="cockpitLockonBar" style="position:absolute; bottom:-10px; left:0; width:100%; height:4px; background:#111; border:1px solid #000; border-radius:2px;"><div id="cockpitLockonFill" style="width:100%; height:100%; background:#50ef39;"></div></div>' +
+      '</div>',
       '<div id="cockpitWaveBanner" class="cockpit-banner" style="display:none; position:absolute; top:78px; left:50%; transform:translateX(-50%); background:rgba(197,17,17,0.92); border:3px solid #000; padding:10px 22px; border-radius:10px; font-weight:bold; z-index:10;"></div>',
       '<div id="cockpitScanPopup" class="cockpit-scan-popup" style="display:none; position:absolute; top:140px; left:24px; max-width:320px; background:rgba(10,22,38,0.92); border:3px solid #38fedc; padding:10px 14px; border-radius:10px; z-index:10;"></div>',
       '<div class="cockpit-hud">',
       '  <div class="cockpit-top">',
       '    <div class="cockpit-badge">RTM FLIGHT DECK · 6-DOF</div>',
+      '    <div id="cockpitMissileIndicator" style="background:#1d2133; border:2px solid #38fedc; border-radius:6px; padding:3px 10px; font-size:11px; font-weight:bold; color:#38fedc;">MISSILE: READY [R-CLICK / G]</div>',
       '    <div class="cockpit-orbital" id="cockpitOrbital">HOHMANN TRANSFER</div>',
       '  </div>',
       '  <div class="cockpit-crosshair" id="cockpitCrosshair">⌖</div>',
@@ -1210,9 +1483,12 @@ window.RTM.Cockpit = (function () {
     asteroidGroup = new THREE.Group();
     scene.add(asteroidGroup);
     buildAsteroids();
+    buildSpaceDust();
   }
 
   function buildNebulaAndStars() {
+    nebulaSkybox = createNebulaSkybox();
+    scene.add(nebulaSkybox);
     var layerA = createNebula(13000, 0x090d20, 0x35105c, 0.85, 0.4);
     var layerB = createNebula(15500, 0x041428, 0x0b3850, 0.55, -0.8);
     scene.add(layerA);
@@ -1259,6 +1535,7 @@ window.RTM.Cockpit = (function () {
     );
     earthMesh.position.copy(EARTH_POS);
     earthMesh.add(createAtmosphere(170, 0x4c9dff, 0.95));
+    earthMesh.add(createFresnelHalo(170, 0x4c9dff));
     scene.add(earthMesh);
 
     satellitePivot = new THREE.Group();
@@ -1321,6 +1598,7 @@ window.RTM.Cockpit = (function () {
     });
     moonMesh = new THREE.Mesh(new THREE.SphereGeometry(MOON_RADIUS, 64, 48), moonMat);
     moonMesh.position.copy(MOON_POS);
+    moonMesh.add(createFresnelHalo(MOON_RADIUS, 0xd0e4ff));
     scene.add(moonMesh);
     addMoonCraters();
 
@@ -1403,6 +1681,7 @@ window.RTM.Cockpit = (function () {
     );
     marsMesh.position.copy(MARS_POS);
     marsMesh.add(createAtmosphere(145, 0xff5a32, 0.8));
+    marsMesh.add(createFresnelHalo(145, 0xff5a32));
     scene.add(marsMesh);
 
     marsMoonsGroup = new THREE.Group();
@@ -1771,6 +2050,8 @@ window.RTM.Cockpit = (function () {
     updateGates(timestamp, dt);
     updateCaptureRing(dt);
     updateLasersAndCollisions(dt);
+    updateSpaceDust(dt);
+    updateTargetLockon();
     readoutTimer += dt;
     if (readoutTimer > 0.08) {
       readoutTimer = 0;
@@ -1870,6 +2151,9 @@ window.RTM.Cockpit = (function () {
 
   function updateEnvironment(timestamp, dt) {
     var time = timestamp * 0.001;
+    if (nebulaSkybox && nebulaSkybox.material && nebulaSkybox.material.uniforms && nebulaSkybox.material.uniforms.uTime) {
+      nebulaSkybox.material.uniforms.uTime.value = time;
+    }
     nebulaLayers.forEach(function (layer) {
       layer.material.uniforms.uTime.value = time;
       layer.rotation.y += dt * 0.0009;
@@ -1935,6 +2219,69 @@ window.RTM.Cockpit = (function () {
     if (captureRing2) {
       captureRing2.material.color.setHex(distance < 230 ? 0xb6ff5c : 0x39ff88);
     }
+  }
+
+  function updateTargetLockon() {
+    var lockonBox = document.getElementById('cockpitLockonBox');
+    var lockonText = document.getElementById('cockpitLockonText');
+    var lockonFill = document.getElementById('cockpitLockonFill');
+    var missileInd = document.getElementById('cockpitMissileIndicator');
+
+    var now = performance.now();
+    if (missileInd) {
+      if (now - lastMissileFireTime < MISSILE_COOLDOWN) {
+        var remainSec = Math.ceil((MISSILE_COOLDOWN - (now - lastMissileFireTime)) / 1000);
+        missileInd.style.color = '#f5f557';
+        missileInd.style.borderColor = '#f5f557';
+        missileInd.textContent = 'MISSILE: RELOADING (' + remainSec + 's)';
+      } else {
+        missileInd.style.color = '#38fedc';
+        missileInd.style.borderColor = '#38fedc';
+        missileInd.textContent = 'MISSILE: READY [R-CLICK / G]';
+      }
+    }
+
+    if (!lockonBox || !camera || !shipGroup) return;
+
+    var forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion).normalize();
+    var bestTarget = null;
+    var closestDist = 450;
+
+    for (var i = 0; i < activeObstacles.length; i++) {
+      var obst = activeObstacles[i];
+      var toObst = obst.position.clone().sub(shipGroup.position);
+      var dist = toObst.length();
+      if (dist < closestDist) {
+        var dir = toObst.clone().normalize();
+        if (forwardDir.dot(dir) > 0.88) {
+          closestDist = dist;
+          bestTarget = obst;
+        }
+      }
+    }
+
+    if (bestTarget) {
+      var proj = bestTarget.position.clone().project(camera);
+      if (proj.z < 1.0) {
+        var sx = (proj.x * 0.5 + 0.5) * window.innerWidth;
+        var sy = (-(proj.y * 0.5) + 0.5) * window.innerHeight;
+        lockonBox.style.left = Math.round(sx) + 'px';
+        lockonBox.style.top = Math.round(sy) + 'px';
+        lockonBox.style.display = 'block';
+
+        if (lockonText) {
+          var name = (bestTarget.userData.meta && bestTarget.userData.meta.name) ? bestTarget.userData.meta.name : 'TARGET';
+          lockonText.textContent = name + ' · ' + Math.round(closestDist) + 'm';
+        }
+        if (lockonFill) {
+          var hp = bestTarget.userData.hp != null ? bestTarget.userData.hp : 2;
+          var maxHp = bestTarget.userData.maxHp || 2;
+          lockonFill.style.width = Math.round((hp / maxHp) * 100) + '%';
+        }
+        return;
+      }
+    }
+    lockonBox.style.display = 'none';
   }
 
   function updateReadouts() {

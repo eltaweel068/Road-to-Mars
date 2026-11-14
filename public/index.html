@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Road to Mars</title>
   <link rel="icon" type="image/png" href="/favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=2.3">
+  <link rel="stylesheet" href="css/style.css?v=3.0">
 </head>
 <body>
 
@@ -68,6 +68,43 @@
               <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
             </div>
 
+            <div class="vibe-meter-card">
+              <div class="vibe-header">
+                <span class="vibe-title">🚀 EXPEDITION FLIGHT DYNAMICS</span>
+                <span id="vibeStatusBadge" class="vibe-badge vibe-easy">CALM CRUISE</span>
+              </div>
+              <div class="vibe-bar-track">
+                <div id="vibeFill" class="vibe-bar-fill" style="width: 35%;"></div>
+                <div class="vibe-marker marker-falcon9" style="left: 65%;">FALCON 9 CAP</div>
+                <div class="vibe-marker marker-sls" style="left: 85%;">SLS CAP</div>
+              </div>
+              <div class="vibe-stats-row">
+                <div class="vibe-stat"><span>🧀 FOOD MASS:</span> <strong id="vibeFoodLabel">160 kg</strong></div>
+                <div class="vibe-stat"><span>🫧 O2 RESERVE:</span> <strong id="vibeO2Label">150 kg</strong></div>
+                <div class="vibe-stat"><span>⚖️ TOTAL MASS:</span> <strong id="vibeTotalLabel">1100 / 1600 kg</strong></div>
+              </div>
+            </div>
+
+            <div class="engineering-readout">
+              <div class="readout-metric">
+                <span>Δv (TSIOLKOVSKY)</span>
+                <strong id="deltaVValue">0 m/s</strong>
+              </div>
+              <div class="readout-metric">
+                <span>THRUST / MASS</span>
+                <strong id="twrValue">0.00 TWR</strong>
+              </div>
+              <div class="readout-metric">
+                <span>TRAVEL TO MARS</span>
+                <strong id="travelValue">0 days</strong>
+              </div>
+              <div class="readout-metric">
+                <span>UPDATED BY</span>
+                <strong id="configByValue">Launch crew</strong>
+              </div>
+            </div>
+
+            <div id="missionWarning" class="mission-warning" style="display:none;"></div>
           </section>
 
           <section class="hangar-right">
@@ -80,15 +117,15 @@
               <span class="config-label">LAUNCH VEHICLE</span>
               <div class="mission-option-grid" id="rocketTabs">
                 <button type="button" class="mission-option" data-rocket="0">
-                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/rocket_topA_SE.png" alt="Electron"></div>
+                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/craft_speederA_SE.png" alt="Electron"></div>
                   <strong>ELECTRON</strong><span>Max 1200 kg</span><small>High Agility</small>
                 </button>
                 <button type="button" class="mission-option active" data-rocket="1">
-                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/rocket_fuelA_SE.png" alt="Falcon 9"></div>
+                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/craft_cargoA_SE.png" alt="Falcon 9"></div>
                   <strong>FALCON 9</strong><span>Max 1600 kg</span><small>Balanced Heavy Lift</small>
                 </button>
                 <button type="button" class="mission-option" data-rocket="2">
-                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/rocket_baseA_SE.png" alt="SLS"></div>
+                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/craft_miner_SE.png" alt="SLS"></div>
                   <strong>SLS BLOCK 1B</strong><span>Max 2200 kg</span><small>Super Heavy Exploration</small>
                 </button>
               </div>
@@ -129,44 +166,6 @@
                 <small id="fuelDuration">Δv reserve: 250 kg propellant</small>
               </label>
             </div>
-
-            <div class="vibe-meter-card">
-              <div class="vibe-header">
-                <span class="vibe-title">🚀 EXPEDITION FLIGHT DYNAMICS</span>
-                <span id="vibeStatusBadge" class="vibe-badge vibe-easy">CALM CRUISE</span>
-              </div>
-              <div class="vibe-bar-track">
-                <div id="vibeFill" class="vibe-bar-fill" style="width: 35%;"></div>
-                <div class="vibe-marker marker-falcon9" style="left: 65%;">FALCON 9 CAP</div>
-                <div class="vibe-marker marker-sls" style="left: 85%;">SLS CAP</div>
-              </div>
-              <div class="vibe-stats-row">
-                <div class="vibe-stat"><span>🧀 FOOD MASS:</span> <strong id="vibeFoodLabel">160 kg</strong></div>
-                <div class="vibe-stat"><span>🫧 O2 RESERVE:</span> <strong id="vibeO2Label">150 kg</strong></div>
-                <div class="vibe-stat"><span>⚖️ TOTAL MASS:</span> <strong id="vibeTotalLabel">1100 / 1600 kg</strong></div>
-              </div>
-            </div>
-
-            <div class="engineering-readout">
-              <div class="readout-metric">
-                <span>Δv (TSIOLKOVSKY)</span>
-                <strong id="deltaVValue">0 m/s</strong>
-              </div>
-              <div class="readout-metric">
-                <span>THRUST / MASS</span>
-                <strong id="twrValue">0.00 TWR</strong>
-              </div>
-              <div class="readout-metric">
-                <span>TRAVEL TO MARS</span>
-                <strong id="travelValue">0 days</strong>
-              </div>
-              <div class="readout-metric">
-                <span>UPDATED BY</span>
-                <strong id="configByValue">Launch crew</strong>
-              </div>
-            </div>
-
-            <div id="missionWarning" class="mission-warning" style="display:none;"></div>
           </section>
         </div>
 
@@ -188,7 +187,7 @@
     <!-- ===== HUD ===== -->
     <div id="taskBar">
       <div class="taskbar-frame">
-        <div class="taskbar-label">TASKS</div>
+        <div class="taskbar-label" id="taskBarText">TASKS</div>
         <div class="taskbar-track" id="taskBarTrack">
           <!-- JS fills green segments -->
         </div>
@@ -316,7 +315,10 @@
       <div class="au-panel debrief-panel">
         <h1 class="debrief-outcome" id="debriefOutcome"></h1>
         <div class="debrief-stats" id="debriefStats"></div>
-        <button class="au-btn au-btn-yellow" id="playAgainBtn">PLAY AGAIN</button>
+        <div class="debrief-actions" style="display:flex; gap:12px; justify-content:center; margin-top:16px;">
+          <button class="au-btn au-btn-green" id="continuePlayingBtn">▶️ CONTINUE PLAYING</button>
+          <button class="au-btn au-btn-yellow" id="playAgainBtn">PLAY AGAIN</button>
+        </div>
       </div>
     </div>
 
@@ -340,19 +342,19 @@
   <script src="https://typpo.github.io/spacekit/build/spacekit.js"></script>
 
   <!-- Game modules (order matters) -->
-  <script src="js/net.js?v=2.3"></script>
-  <script src="js/audio.js?v=2.3"></script>
-  <script src="js/renderer.js?v=2.3"></script>
-  <script src="js/hud.js?v=2.3"></script>
-  <script src="js/lobby.js?v=2.3"></script>
-  <script src="js/ship.js?v=2.3"></script>
-  <script src="js/moon.js?v=2.3"></script>
-  <script src="js/cockpit.js?v=2.3"></script>
-  <script src="js/meeting.js?v=2.3"></script>
-  <script src="js/tasks.js?v=2.3"></script>
-  <script src="js/nasa-archive.js?v=2.3"></script>
-  <script src="js/debrief.js?v=2.3"></script>
-  <script src="js/main.js?v=2.3"></script>
+  <script src="js/net.js?v=3.0"></script>
+  <script src="js/audio.js?v=3.0"></script>
+  <script src="js/renderer.js?v=3.0"></script>
+  <script src="js/hud.js?v=3.0"></script>
+  <script src="js/lobby.js?v=3.0"></script>
+  <script src="js/ship.js?v=3.0"></script>
+  <script src="js/moon.js?v=3.0"></script>
+  <script src="js/cockpit.js?v=3.0"></script>
+  <script src="js/meeting.js?v=3.0"></script>
+  <script src="js/tasks.js?v=3.0"></script>
+  <script src="js/nasa-archive.js?v=3.0"></script>
+  <script src="js/debrief.js?v=3.0"></script>
+  <script src="js/main.js?v=3.0"></script>
 
 </body>
 </html>

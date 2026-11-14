@@ -16,7 +16,7 @@ window.RTM.Audio = (function () {
     lockondone:  '/3D-Airforce-Simulator/sounds/lockondone.ogg',
     lockon:      '/3D-Airforce-Simulator/sounds/lockondone.ogg',
     voice_start: '/assets/sounds/voice_start_a.ogg',
-    hit:         '/3D-Airforce-Simulator/sounds/hit.ogg',
+    hit:         '../../3D-Airforce-Simulator/sounds/hit.ogg',
     laser:       '/skyfall-assets/audio/cannon-burst.mp3',
     missile:     '/skyfall-assets/audio/missile-launch.wav',
     explosion:   '/skyfall-assets/audio/explosions.mp3',

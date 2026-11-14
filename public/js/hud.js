@@ -500,14 +500,16 @@ window.RTM.HUD = (function () {
    *  NOTIFICATIONS
    * ──────────────────────────────────────────── */
 
-  function showNotification(message, type, variant) {
+  function showNotification(message, type, variant, maybeDuration) {
     var ui = document.getElementById('uiLayer');
     if (!ui) return;
 
     var toast = document.createElement('div');
     toast.className = 'au-toast';
     if (type) toast.classList.add('toast-' + type);
-    if (variant) toast.classList.add('toast-' + variant);
+    if (typeof variant === 'string') toast.classList.add('toast-' + variant);
+
+    var duration = typeof variant === 'number' ? variant : (typeof maybeDuration === 'number' ? maybeDuration : NOTIFICATION_DURATION);
 
     toast.textContent = message;
     ui.appendChild(toast);
@@ -524,7 +526,7 @@ window.RTM.HUD = (function () {
       setTimeout(function () {
         if (toast.parentNode) toast.parentNode.removeChild(toast);
       }, 400);
-    }, NOTIFICATION_DURATION);
+    }, duration);
   }
 
   /* ────────────────────────────────────────────
@@ -589,6 +591,14 @@ window.RTM.HUD = (function () {
       RTM.Net.on('task:updated', function (data) {
         if (data && data.tasks) {
           updateHUD(RTM.Net.getState().telemetry, data.tasks);
+        }
+      });
+
+      RTM.Net.on('mars:arrived', function (data) {
+        showNotification((data && data.message) || '🪐 Mars Orbit Reached Safely! Continue tasks and free flight freely!', 'success', 7000);
+        var taskBarText = document.getElementById('taskBarText') || document.querySelector('.taskbar-label');
+        if (taskBarText) {
+          taskBarText.textContent = '🪐 MARS ORBIT REACHED — FREE PLAY MODE (100%)';
         }
       });
     }

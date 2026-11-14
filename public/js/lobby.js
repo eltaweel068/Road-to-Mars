@@ -286,9 +286,10 @@ window.RTM.Lobby = (function () {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!player) {
-      ctx.globalAlpha = 0.3;
+      ctx.save();
+      ctx.globalAlpha = 0.65;
       if (window.RTM && window.RTM.Renderer && window.RTM.Renderer.drawCrewmate) {
-        window.RTM.Renderer.drawCrewmate(ctx, 50, 70, '#555566', {
+        window.RTM.Renderer.drawCrewmate(ctx, 50, 70, '#384160', {
           direction: 'right',
           moving: false,
           hat: null,
@@ -296,7 +297,11 @@ window.RTM.Lobby = (function () {
           ghost: false
         });
       }
-      ctx.globalAlpha = 1.0;
+      ctx.fillStyle = '#8395b8';
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('?', 52, 63);
+      ctx.restore();
       return;
     }
 

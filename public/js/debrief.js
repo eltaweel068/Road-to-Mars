@@ -18,6 +18,7 @@ window.RTM.Debrief = (function () {
     els.outcome = document.getElementById('debriefOutcome');
     els.stats = document.getElementById('debriefStats');
     els.playAgain = document.getElementById('playAgainBtn');
+    els.continuePlaying = document.getElementById('continuePlayingBtn');
   }
 
   function makeStat(label, value) {
@@ -147,6 +148,18 @@ window.RTM.Debrief = (function () {
     ensureReason();
     ensureRoster();
     if (els.playAgain) els.playAgain.addEventListener('click', playAgain);
+    if (els.continuePlaying) {
+      els.continuePlaying.addEventListener('click', function () {
+        hide();
+        if (RTM.Net) {
+          var state = RTM.Net.getState();
+          state.phase = 'playing';
+        }
+        if (RTM.HUD && RTM.HUD.updateButtons) {
+          RTM.HUD.updateButtons({ canReport: true, nearStation: false, nearCrewmate: false });
+        }
+      });
+    }
     if (RTM.Net) {
       RTM.Net.on('game:ended', show);
       RTM.Net.on('game:started', hide);

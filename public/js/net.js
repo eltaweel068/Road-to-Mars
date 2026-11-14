@@ -13,7 +13,8 @@ window.RTM.Net = (function () {
     'pilot:thrust', 'moon:state', 'moon:nodes', 'moon:node-collected',
     'meeting:started', 'meeting:voted', 'meeting:ended', 'cargo:jettisoned',
     'room:message', 'state:snapshot', 'player:specialty',
-    'emergency:started', 'emergency:cleared', 'cockpit:asteroid:alert'
+    'emergency:started', 'emergency:cleared', 'cockpit:asteroid:alert',
+    'mars:arrived'
   ];
 
   var EVENT_ALIASES = {
@@ -463,9 +464,7 @@ window.RTM.Net = (function () {
         t.marsProgress = Math.min(100, t.marsProgress + 1.4 / penalty);
         t.starving = t.food <= 0;
         dispatchTelemetry();
-        if (t.marsProgress >= 100) {
-          offline.endGame('crew', 'mars-arrival');
-        }
+        offline.checkWin();
       }, 1000);
       offlineTimers.push(timer);
     },
@@ -857,8 +856,15 @@ window.RTM.Net = (function () {
       var alive = Object.keys(state.players).filter(function (id) { return state.players[id].alive; });
       if (alive.length === 0) {
         offline.endGame('lost', 'all-crew-lost');
-      } else if (state.telemetry.marsProgress >= 100) {
-        offline.endGame('crew', 'mars-arrival');
+        return;
+      }
+      if (state.telemetry.marsProgress >= 100 && !state.marsArrived) {
+        state.marsArrived = true;
+        state.telemetry.marsArrived = true;
+        dispatch('mars:arrived', {
+          message: '🪐 The spacecraft has arrived safely in Mars orbit! You can continue tasks and free flight!',
+          telemetry: state.telemetry
+        });
       }
     },
 
@@ -1181,6 +1187,13 @@ window.RTM.Net = (function () {
       case 'cockpit:asteroid:alert':
         if (state.telemetry) {
           state.telemetry.autopilot = false;
+        }
+        break;
+      case 'mars:arrived':
+        state.marsArrived = true;
+        if (state.telemetry) {
+          state.telemetry.marsArrived = true;
+          if (data && data.telemetry) Object.assign(state.telemetry, data.telemetry);
         }
         break;
       case 'game:ended':

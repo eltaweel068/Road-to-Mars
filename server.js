@@ -711,12 +711,9 @@ function computeWin(room) {
   const emergencyLoss = checkEmergencyState(room);
   if (emergencyLoss) return emergencyLoss;
 
-  // Pure co-op: No imposters! Only check if all crew perished or if Mars reached
+  // Pure co-op: No imposters! Only check if all crew perished
   if (alive.length === 0) {
     return { winner: "lost", reason: "all-crew-lost" };
-  }
-  if (room.telemetry.marsProgress >= 100) {
-    return { winner: "crew", reason: "mars-arrival" };
   }
   return null;
 }
@@ -921,6 +918,14 @@ function telemetryTick(room) {
     0,
     100,
   );
+  if (telemetry.marsProgress >= 100 && !room.marsArrived) {
+    room.marsArrived = true;
+    telemetry.marsArrived = true;
+    io.to(room.id).emit("mars:arrived", {
+      message: "🪐 The spacecraft has arrived safely in Mars orbit! You can continue tasks and free flight!",
+      telemetry: room.telemetry,
+    });
+  }
   recomputeTelemetry(room);
   emitTelemetry(room);
   const win = computeWin(room);
