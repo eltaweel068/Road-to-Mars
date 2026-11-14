@@ -144,6 +144,7 @@ window.RTM.Cockpit = (function () {
   var spaceDust = null;
   var DUST_COUNT = 250;
   var nebulaSkybox = null;
+  var cannonHeat = 280;
 
   function prepareRealisticAsteroidGeometry(geometry) {
     geometry.center();
@@ -409,6 +410,7 @@ window.RTM.Cockpit = (function () {
     var now = performance.now();
     if (now - lastLaserFireTime < LASER_FIRE_INTERVAL) return;
     lastLaserFireTime = now;
+    cannonHeat = Math.min(850, cannonHeat + 25);
 
     if (RTM.Audio) {
       if (!RTM.Audio.play('laser', 0.6)) {
@@ -458,6 +460,7 @@ window.RTM.Cockpit = (function () {
     var now = performance.now();
     if (now - lastMissileFireTime < MISSILE_COOLDOWN) return;
     lastMissileFireTime = now;
+    cannonHeat = Math.min(850, cannonHeat + 40);
 
     if (RTM.Audio) {
       if (!RTM.Audio.play('missile', 0.8)) {
@@ -969,6 +972,7 @@ window.RTM.Cockpit = (function () {
           if (RTM.Net) {
             var s = RTM.Net.getState();
             s.telemetry.hull = Math.max(0, (s.telemetry.hull != null ? s.telemetry.hull : 100) - 5);
+            s.telemetry.gyroDrift = Math.min(100, (s.telemetry.gyroDrift || 0) + 18);
             RTM.Net.emit('cockpit:obstacle:hit');
           }
 
@@ -1312,9 +1316,25 @@ window.RTM.Cockpit = (function () {
       '</div>',
       '<div id="cockpitWaveBanner" class="cockpit-banner" style="display:none; position:absolute; top:78px; left:50%; transform:translateX(-50%); background:rgba(197,17,17,0.92); border:3px solid #000; padding:10px 22px; border-radius:10px; font-weight:bold; z-index:10;"></div>',
       '<div id="cockpitScanPopup" class="cockpit-scan-popup" style="display:none; position:absolute; top:140px; left:24px; max-width:320px; background:rgba(10,22,38,0.92); border:3px solid #38fedc; padding:10px 14px; border-radius:10px; z-index:10;"></div>',
+      '<div id="cockpitGyroHud" class="cockpit-gyro-hud" title="Click or Press [Y] to Calibrate IMU Gyro">' +
+      '  <div class="cockpit-gyro-header">' +
+      '    <span>3-AXIS IMU GYRO</span>' +
+      '    <span id="cockpitGyroDriftBadge" style="color:#50ef39;">DRIFT: 0%</span>' +
+      '  </div>' +
+      '  <canvas id="cockpitGyroCanvas" width="140" height="140"></canvas>' +
+      '  <div id="cockpitGyroDriftWarn" style="display:none;">⚠️ GYRO DRIFT DETECTED — PRESS [Y] TO CALIBRATE IMU</div>' +
+      '</div>',
       '<div class="cockpit-hud">',
       '  <div class="cockpit-top">',
       '    <div class="cockpit-badge">RTM FLIGHT DECK · 6-DOF</div>',
+      '    <div class="cockpit-sensors-hud">' +
+      '      <div id="cockpitProximity" class="cockpit-sensor-box" style="color:#38fedc;">📡 PROXIMITY: CLEAR</div>' +
+      '      <div id="cockpitFuelFlowWrap" class="cockpit-sensor-box" style="color:#ffb703;">' +
+      '        <span id="cockpitFuelFlow">⛽ FLOW: 0.0 L/s</span>' +
+      '        <button id="btnEmergencyFuelSynth" class="au-btn au-btn-yellow btn-sensor-synth" title="Emergency Sabatier Fuel Synthesis [R]">[R] FUEL SYNTH (+18%)</button>' +
+      '      </div>' +
+      '      <div id="cockpitThermal" class="cockpit-sensor-box" style="color:#7fe7ff;">🌡 THERMAL: 280°C</div>' +
+      '    </div>',
       '    <div id="cockpitMissileIndicator" style="background:#1d2133; border:2px solid #38fedc; border-radius:6px; padding:3px 10px; font-size:11px; font-weight:bold; color:#38fedc;">MISSILE: READY [R-CLICK / G]</div>',
       '    <div class="cockpit-orbital" id="cockpitOrbital">HOHMANN TRANSFER</div>',
       '  </div>',
@@ -1381,6 +1401,21 @@ window.RTM.Cockpit = (function () {
     els.distMars = document.getElementById('distMars');
     els.gateValue = document.getElementById('cockpitGateValue');
     els.navball = document.getElementById('cockpitNavball');
+    els.gyroHud = document.getElementById('cockpitGyroHud');
+    els.gyroCanvas = document.getElementById('cockpitGyroCanvas');
+    els.gyroDriftBadge = document.getElementById('cockpitGyroDriftBadge');
+    els.gyroDriftWarn = document.getElementById('cockpitGyroDriftWarn');
+    els.proximity = document.getElementById('cockpitProximity');
+    els.fuelFlow = document.getElementById('cockpitFuelFlow');
+    els.btnEmergencyFuelSynth = document.getElementById('btnEmergencyFuelSynth');
+    els.thermal = document.getElementById('cockpitThermal');
+
+    if (els.gyroHud) {
+      els.gyroHud.addEventListener('click', calibrateGyro);
+    }
+    if (els.btnEmergencyFuelSynth) {
+      els.btnEmergencyFuelSynth.addEventListener('click', triggerEmergencyFuelSynth);
+    }
 
     if (els.throttle) {
       els.throttle.addEventListener('input', function () {
@@ -1392,6 +1427,41 @@ window.RTM.Cockpit = (function () {
     if (els.cameraBtn) els.cameraBtn.addEventListener('click', toggleCameraMode);
     if (els.land) els.land.addEventListener('click', land);
     if (els.leave) els.leave.addEventListener('click', leaveSeat);
+  }
+
+  function calibrateGyro() {
+    manualRoll = 0;
+    autoRoll = 0;
+    if (RTM.Net) {
+      var s = RTM.Net.getState();
+      if (s && s.telemetry) s.telemetry.gyroDrift = 0;
+      RTM.Net.emit('cockpit:gyro:calibrated');
+    }
+    if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('lockon', 0.8);
+    if (RTM.HUD && RTM.HUD.showNotification) {
+      RTM.HUD.showNotification('🧭 3-AXIS GYROSCOPE & IMU CALIBRATED!', 'success', 3500);
+    }
+    if (els.gyroDriftBadge) {
+      els.gyroDriftBadge.textContent = 'DRIFT: 0%';
+      els.gyroDriftBadge.style.color = '#50ef39';
+    }
+    if (els.gyroDriftWarn) {
+      els.gyroDriftWarn.style.display = 'none';
+    }
+  }
+
+  function triggerEmergencyFuelSynth() {
+    if (RTM.Net) {
+      var s = RTM.Net.getState();
+      if (s && s.telemetry) {
+        s.telemetry.fuel = Math.min(100, (s.telemetry.fuel || 0) + 18);
+      }
+      RTM.Net.emit('cockpit:fuel:synth');
+    }
+    if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('afterburner', 0.8);
+    if (RTM.HUD && RTM.HUD.showNotification) {
+      RTM.HUD.showNotification('⛽ EMERGENCY FUEL SYNTHESIZED (+18% FUEL)', 'success', 3500);
+    }
   }
 
   function toggleCameraMode() {
@@ -2057,7 +2127,12 @@ window.RTM.Cockpit = (function () {
       readoutTimer = 0;
       updateReadouts();
     }
+    if (boost) {
+      cannonHeat = Math.min(850, cannonHeat + 45 * dt);
+    }
+    cannonHeat = Math.max(280, cannonHeat - 65 * dt);
     drawNavball();
+    drawGyroHud();
     if (composer) {
       composer.render();
     } else {
@@ -2066,6 +2141,25 @@ window.RTM.Cockpit = (function () {
   }
 
   function updateShipFlight(dt) {
+    var drift = 0;
+    if (RTM.Net) {
+      var st = RTM.Net.getState();
+      if (st && st.telemetry && st.telemetry.gyroDrift != null) {
+        drift = st.telemetry.gyroDrift;
+      }
+    }
+    if (drift > 15) {
+      yaw += (drift * 0.004) * dt;
+      manualRoll += (drift * 0.002) * dt;
+      if (els.gyroDriftWarn) els.gyroDriftWarn.style.display = 'block';
+    } else {
+      if (els.gyroDriftWarn) els.gyroDriftWarn.style.display = 'none';
+    }
+    if (els.gyroDriftBadge) {
+      els.gyroDriftBadge.textContent = 'DRIFT: ' + Math.round(drift) + '%';
+      els.gyroDriftBadge.style.color = drift > 15 ? '#ff3344' : '#50ef39';
+    }
+
     shipGroup.rotation.set(pitch, yaw, manualRoll + autoRoll);
     var effectiveThrottle = Math.max(throttle, boost ? 0.42 : 0);
     var speed = effectiveThrottle * 150 * (boost ? 2.7 : 1);
@@ -2334,6 +2428,57 @@ window.RTM.Cockpit = (function () {
         els.status.textContent = 'W/S PITCH · A/D YAW · Q/E ROLL · SHIFT/CTRL THROTTLE · B AFTERBURNER · SPACE FIRE LASERS · 1–5 PRESET';
       }
     }
+
+    // Flight sensor suite telemetry updates
+    var minDist = Infinity;
+    if (shipGroup && activeObstacles.length > 0) {
+      var forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion).normalize();
+      for (var oi = 0; oi < activeObstacles.length; oi++) {
+        var toObs = activeObstacles[oi].position.clone().sub(shipGroup.position);
+        var dist = toObs.length();
+        if (toObs.clone().normalize().dot(forwardDir) > 0.25 && dist < minDist) {
+          minDist = dist;
+        }
+      }
+    }
+    if (els.proximity) {
+      if (minDist < 45) {
+        els.proximity.textContent = '⚠️ IMPACT WARNING: ' + Math.round(minDist) + 'm';
+        els.proximity.style.color = '#ff3344';
+        els.proximity.style.borderColor = '#ff3344';
+        els.proximity.style.boxShadow = '0 0 14px rgba(255, 51, 68, 0.85)';
+      } else if (minDist < 120) {
+        els.proximity.textContent = '📡 PROXIMITY: ' + Math.round(minDist) + 'm';
+        els.proximity.style.color = '#ffb703';
+        els.proximity.style.borderColor = '#ffb703';
+        els.proximity.style.boxShadow = 'none';
+      } else {
+        els.proximity.textContent = '📡 PROXIMITY: CLEAR';
+        els.proximity.style.color = '#38fedc';
+        els.proximity.style.borderColor = '#2f3e55';
+        els.proximity.style.boxShadow = 'none';
+      }
+    }
+
+    if (els.fuelFlow) {
+      var flowRate = (throttle * 4.2 + (boost ? 8.4 : 0)).toFixed(1);
+      els.fuelFlow.textContent = '⛽ FLOW: ' + flowRate + ' L/s';
+    }
+
+    if (els.thermal) {
+      var curTemp = Math.round(cannonHeat);
+      els.thermal.textContent = '🌡 THERMAL: ' + curTemp + '°C';
+      if (curTemp > 720) {
+        els.thermal.style.color = '#ff3344';
+        els.thermal.style.borderColor = '#ff3344';
+      } else if (curTemp > 500) {
+        els.thermal.style.color = '#ffb703';
+        els.thermal.style.borderColor = '#ffb703';
+      } else {
+        els.thermal.style.color = '#7fe7ff';
+        els.thermal.style.borderColor = '#2f3e55';
+      }
+    }
   }
 
   function drawNavball() {
@@ -2398,6 +2543,124 @@ window.RTM.Cockpit = (function () {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillText(String(Math.round(normalizeDeg(-yaw * 180 / Math.PI) + 180) % 360).padStart(3, '0') + '°', cx, cy + radius - 7);
+  }
+
+  function drawGyroHud() {
+    if (!els.gyroCanvas) return;
+    var canvas = els.gyroCanvas;
+    var ctx = canvas.getContext('2d');
+    var w = canvas.width;
+    var h = canvas.height;
+    var cx = w / 2;
+    var cy = h / 2;
+    var r = 62;
+
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.save();
+    // Clip circular horizon ball
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    var rollRad = -(manualRoll + autoRoll);
+    ctx.rotate(rollRad);
+
+    var pitchPx = Math.max(-50, Math.min(50, pitch * (180 / Math.PI) * 1.5));
+
+    // Sky half
+    var skyGrad = ctx.createLinearGradient(0, -r, 0, pitchPx);
+    skyGrad.addColorStop(0, '#0a233b');
+    skyGrad.addColorStop(1, '#1b4d75');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(-w, -h, w * 2, h + pitchPx);
+
+    // Ground half
+    var gndGrad = ctx.createLinearGradient(0, pitchPx, 0, r);
+    gndGrad.addColorStop(0, '#543011');
+    gndGrad.addColorStop(1, '#241407');
+    ctx.fillStyle = gndGrad;
+    ctx.fillRect(-w, pitchPx, w * 2, h);
+
+    // White Horizon line
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-r, pitchPx);
+    ctx.lineTo(r, pitchPx);
+    ctx.stroke();
+
+    // Pitch ladder rungs (+/- 10, 20, 30 deg)
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    [-30, -20, -10, 10, 20, 30].forEach(function (deg) {
+      var dy = pitchPx - deg * 1.5;
+      if (Math.abs(dy) < r - 8) {
+        var len = deg % 20 === 0 ? 28 : 16;
+        ctx.strokeStyle = deg > 0 ? '#38fedc' : '#f5f557';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-len / 2, dy);
+        ctx.lineTo(len / 2, dy);
+        ctx.stroke();
+        ctx.fillText((deg > 0 ? '+' : '') + deg, len / 2 + 10, dy + 3);
+      }
+    });
+
+    ctx.restore();
+
+    // Aircraft fixed reticle (yellow wings & center dot)
+    ctx.strokeStyle = '#f5f557';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    // Left wing
+    ctx.moveTo(cx - 36, cy);
+    ctx.lineTo(cx - 14, cy);
+    ctx.lineTo(cx - 14, cy + 6);
+    // Right wing
+    ctx.moveTo(cx + 36, cy);
+    ctx.lineTo(cx + 14, cy);
+    ctx.lineTo(cx + 14, cy + 6);
+    ctx.stroke();
+
+    // Center pip
+    ctx.fillStyle = '#f5f557';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Glass reflection arc
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r - 4, -Math.PI * 0.7, -Math.PI * 0.15);
+    ctx.stroke();
+
+    ctx.restore(); // end clip
+
+    // Outer bezel ring
+    ctx.strokeStyle = '#38fedc';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Heading indicator readout on top of gyro
+    var hdg = Math.round(((yaw % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2)) * (180 / Math.PI));
+    ctx.fillStyle = '#38fedc';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(hdg).padStart(3, '0') + '° HDG', cx, 16);
+
+    // Pitch & roll degree text at bottom
+    var pDeg = Math.round(pitch * 180 / Math.PI);
+    var rDeg = Math.round((manualRoll + autoRoll) * 180 / Math.PI);
+    ctx.fillStyle = '#b0b8cc';
+    ctx.font = 'bold 9px monospace';
+    ctx.fillText('P:' + pDeg + '° R:' + rDeg + '°', cx, h - 8);
   }
 
   /* ── LIFECYCLE ─────────────────────────────────────────────── */
@@ -2532,6 +2795,12 @@ window.RTM.Cockpit = (function () {
     } else if (event.key === 'l' || event.key === 'L') {
       event.preventDefault();
       land();
+    } else if (event.key === 'y' || event.key === 'Y') {
+      event.preventDefault();
+      calibrateGyro();
+    } else if (event.key === 'r' || event.key === 'R') {
+      event.preventDefault();
+      triggerEmergencyFuelSynth();
     } else if (event.code === 'KeyF' || event.code === 'Space') {
       event.preventDefault();
       fireLaserCannons();

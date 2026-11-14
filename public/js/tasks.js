@@ -4,7 +4,10 @@ window.RTM.Tasks = (function () {
 
   var TASKS = {
     wires: { title: 'ELECTRICAL WIRING', eyebrow: 'ELECTRICAL', instruction: 'Drag colored cables to matching sockets. Watch out for sparks!' },
-    o2_filter: { title: 'GREENHOUSE HYDROPONICS', eyebrow: 'LIFE SUPPORT', instruction: 'Hold left click to pour water and nurture alien plants until they bloom!' },
+    o2_filter: { title: 'HYDROPONIC VEGGIE FARM', eyebrow: 'LIFE SUPPORT', instruction: 'Irrigate 3 crop beds (Potatoes, Lettuce, Tomatoes) with water droplets, then harvest ripe crops!' },
+    water_recycle: { title: 'ECLSS WATER FILTRATION', eyebrow: 'WATER SYSTEM', instruction: 'Flush the 3 clogged filter valves (Charcoal, RO, UV) and pump clean H2O into the reserve tank!' },
+    co2_scrubber: { title: 'CO2 SCRUBBER & O2 SENSOR', eyebrow: 'AIR QUALITY', instruction: 'Vent 3 saturated Zeolite canisters into space, then calibrate the O2 regulator to 21.0 kPa!' },
+    fuel_synth: { title: 'SABATIER FUEL & BENZINE PUMP', eyebrow: 'PROPULSION', instruction: 'Connect the fuel nozzle and pump propellant keeping pressure in the green zone until 100%!' },
     nav: { title: 'RADAR ASTEROID LOCK', eyebrow: 'NAVIGATION', instruction: 'Click 4 detected orbital targets on the sweeping radar screen.' },
     cargo: { title: 'HULL BREACH PLASMA WELD', eyebrow: 'STORAGE & HULL', instruction: 'Drag the plasma torch across the breach seam to weld it airtight!' },
     science: { title: 'DEEP SPACE DISH ALIGNMENT', eyebrow: 'SCIENCE LAB & COMMS', instruction: 'Rotate the satellite dish antenna toward the DSN carrier signal.' },
@@ -17,8 +20,11 @@ window.RTM.Tasks = (function () {
 
   var TASK_REWARDS = {
     wires: '⚡ POWER RESTORED: +15% FUEL & POWER!',
-    o2_filter: '🌱 GREENHOUSE THRIVING: +20% OXYGEN!',
-    nav: '🧭 VECTOR LOCKED: +8% MARS PROGRESS!',
+    o2_filter: '🥔 VEGGIES HARVESTED: +22% FOOD, +18% O2, -18% CO2!',
+    water_recycle: '💧 ECLSS WATER PURIFIED: +30% CLEAN WATER!',
+    co2_scrubber: '🫧 CO2 VENTED & O2 AT 21.0 kPa: -45% CO2, +18% O2!',
+    fuel_synth: '⛽ PROPELLANT SYNTHESIZED: +28% FUEL & -15% CO2!',
+    nav: '🧭 VECTOR LOCKED: +8% MARS PROGRESS & GYRO CALIBRATED!',
     cargo: '🛡️ HULL WELDED: +20% HULL INTEGRITY & -15 KG MASS!',
     science: '📡 DSN LINK ESTABLISHED: +30 SCIENCE DATA!',
     cheese_grill: '🧀 ROMY CHEESE MELTED: +18% FOOD & STARVATION PREVENTED!',
@@ -117,21 +123,20 @@ window.RTM.Tasks = (function () {
     }, 850);
   }
 
-  // ==========================================
-  // MINI-GAME 1: GREENHOUSE HYDROPONICS (O2)
-  // ==========================================
+  // ==============================================================
+  // MINI-GAME 1: HYDROPONIC VEGGIE FARM (O2, FOOD, CO2, WATER)
+  // ==============================================================
   function runGreenhouseGame(canvas, onComplete) {
     var ctx = canvas.getContext('2d');
     var animId = null;
-    var plants = [
-      { x: 75,  waterLevel: 0, bloomed: false, label: 'Alocasia Mars-1' },
-      { x: 185, waterLevel: 0, bloomed: false, label: 'Spirulina Moss' },
-      { x: 295, waterLevel: 0, bloomed: false, label: 'Martian Bamboo' },
-      { x: 405, waterLevel: 0, bloomed: false, label: 'O2 Fern Sprout' }
+    var beds = [
+      { x: 50,  w: 130, y: 140, h: 175, moisture: 0, ripe: false, harvested: false, label: 'Martian Potatoes', icon: '🥔', color: '#c49a45' },
+      { x: 205, w: 130, y: 140, h: 175, moisture: 0, ripe: false, harvested: false, label: 'Space Lettuce', icon: '🥬', color: '#2ecc71' },
+      { x: 360, w: 130, y: 140, h: 175, moisture: 0, ripe: false, harvested: false, label: 'Gene Tomatoes', icon: '🍅', color: '#e74c3c' }
     ];
 
     var waterDrops = [];
-    var bubbles = [];
+    var sparkles = [];
     var isPouring = false;
     var mousePos = { x: 270, y: 70 };
     var finished = false;
@@ -143,8 +148,30 @@ window.RTM.Tasks = (function () {
     }
 
     function onMouseDown(e) {
-      isPouring = true;
       updateMouse(e);
+      var clickedHarvest = false;
+      beds.forEach(function (bed) {
+        if (bed.ripe && !bed.harvested) {
+          if (mousePos.x >= bed.x && mousePos.x <= bed.x + bed.w && mousePos.y >= bed.y && mousePos.y <= bed.y + bed.h) {
+            bed.harvested = true;
+            clickedHarvest = true;
+            if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('lockondone', 0.5);
+            for (var s = 0; s < 14; s++) {
+              sparkles.push({
+                x: bed.x + bed.w / 2 + (Math.random() - 0.5) * 40,
+                y: bed.y + 60,
+                vx: (Math.random() - 0.5) * 6,
+                vy: -3 - Math.random() * 5,
+                color: bed.color,
+                life: 1.0
+              });
+            }
+          }
+        }
+      });
+      if (!clickedHarvest) {
+        isPouring = true;
+      }
     }
 
     function onMouseUp() {
@@ -163,33 +190,30 @@ window.RTM.Tasks = (function () {
     };
 
     function loop() {
-      ctx.fillStyle = '#101c15';
+      ctx.fillStyle = '#0f1713';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Greenhouse ceiling and UV grow-lights
-      ctx.fillStyle = '#1b2f22';
-      ctx.fillRect(0, 0, canvas.width, 28);
-      ctx.fillStyle = '#ff3388';
-      for (var l = 40; l < canvas.width; l += 70) {
-        ctx.fillRect(l, 8, 36, 6);
-        ctx.fillStyle = 'rgba(255, 51, 136, 0.12)';
-        ctx.beginPath();
-        ctx.moveTo(l, 14);
-        ctx.lineTo(l - 20, 290);
-        ctx.lineTo(l + 56, 290);
-        ctx.lineTo(l + 36, 14);
-        ctx.fill();
+      ctx.fillStyle = '#17281e';
+      ctx.fillRect(0, 0, canvas.width, 32);
+      for (var l = 50; l < canvas.width; l += 80) {
         ctx.fillStyle = '#ff3388';
+        ctx.fillRect(l, 8, 45, 8);
+        ctx.fillStyle = 'rgba(255, 51, 136, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(l, 16);
+        ctx.lineTo(l - 25, 300);
+        ctx.lineTo(l + 70, 300);
+        ctx.lineTo(l + 45, 16);
+        ctx.fill();
       }
 
-      // Water droplets from hose nozzle
       if (isPouring) {
         for (var i = 0; i < 4; i++) {
           waterDrops.push({
-            x: mousePos.x + (Math.random() - 0.5) * 14,
-            y: mousePos.y + 12,
-            vx: (Math.random() - 0.5) * 1.5,
-            vy: 7 + Math.random() * 5
+            x: mousePos.x + (Math.random() - 0.5) * 20,
+            y: mousePos.y + 14,
+            vx: (Math.random() - 0.5) * 1.6,
+            vy: 8 + Math.random() * 6
           });
         }
       }
@@ -203,113 +227,600 @@ window.RTM.Tasks = (function () {
         ctx.arc(drop.x, drop.y, 3, 0, Math.PI * 2);
         ctx.fill();
 
-        plants.forEach(function (plant) {
-          if (Math.abs(drop.x - (plant.x + 30)) < 32 && drop.y >= 270 && drop.y <= 325) {
-            plant.waterLevel = Math.min(100, plant.waterLevel + 0.9);
-            if (plant.waterLevel >= 100 && !plant.bloomed) {
-              plant.bloomed = true;
-              for (var b = 0; b < 6; b++) {
-                bubbles.push({
-                  x: plant.x + 30 + (Math.random() - 0.5) * 20,
-                  y: 200,
-                  vy: -1.2 - Math.random() * 1.8,
-                  r: 4 + Math.random() * 5
-                });
-              }
-              if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('lockondone', 0.4);
+        beds.forEach(function (bed) {
+          if (drop.x >= bed.x && drop.x <= bed.x + bed.w && drop.y >= bed.y + 70 && drop.y <= bed.y + bed.h) {
+            bed.moisture = Math.min(100, bed.moisture + 1.2);
+            if (bed.moisture >= 100 && !bed.ripe) {
+              bed.ripe = true;
+              if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('lockon', 0.4);
             }
           }
         });
 
-        if (drop.y > canvas.height - 20) waterDrops.splice(d, 1);
+        if (drop.y > canvas.height - 10) waterDrops.splice(d, 1);
       }
 
-      // Update O2 rising bubbles
-      ctx.strokeStyle = '#38fedc';
-      ctx.lineWidth = 1.5;
-      for (var bi = bubbles.length - 1; bi >= 0; bi--) {
-        var bubble = bubbles[bi];
-        bubble.y += bubble.vy;
-        bubble.x += Math.sin(Date.now() * 0.005 + bi) * 0.5;
-        ctx.beginPath();
-        ctx.arc(bubble.x, bubble.y, bubble.r, 0, Math.PI * 2);
-        ctx.stroke();
-        if (bubble.y < 35) bubbles.splice(bi, 1);
-      }
+      var allHarvested = true;
+      beds.forEach(function (bed) {
+        if (!bed.harvested) allHarvested = false;
 
-      // Draw Pots & Botanicals
-      var allBloomed = true;
-      plants.forEach(function (plant) {
-        if (!plant.bloomed) allBloomed = false;
+        ctx.fillStyle = '#2d241e';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 4;
+        ctx.fillRect(bed.x, bed.y + 70, bed.w, bed.h - 70);
+        ctx.strokeRect(bed.x, bed.y + 70, bed.w, bed.h - 70);
 
-        // Planter pot
-        ctx.fillStyle = '#7a4e2d';
-        ctx.fillRect(plant.x, 285, 60, 55);
-        ctx.fillStyle = '#56351d';
-        ctx.fillRect(plant.x - 4, 280, 68, 8);
+        ctx.fillStyle = bed.moisture > 70 ? '#382515' : '#573d27';
+        ctx.fillRect(bed.x + 8, bed.y + 78, bed.w - 16, 50);
 
-        // Water level gauge
-        ctx.fillStyle = '#1e2420';
-        ctx.fillRect(plant.x + 6, 322, 48, 8);
-        ctx.fillStyle = plant.bloomed ? '#50ef39' : '#38fedc';
-        ctx.fillRect(plant.x + 6, 322, 48 * (plant.waterLevel / 100), 8);
+        ctx.fillStyle = '#111513';
+        ctx.fillRect(bed.x + 8, bed.y + 135, bed.w - 16, 12);
+        ctx.strokeRect(bed.x + 8, bed.y + 135, bed.w - 16, 12);
+        ctx.fillStyle = bed.ripe ? '#50ef39' : '#00bfff';
+        ctx.fillRect(bed.x + 8, bed.y + 135, (bed.w - 16) * (bed.moisture / 100), 12);
 
-        // Stem growth
-        var growth = plant.waterLevel / 100;
-        var stemHeight = growth * 105;
-        ctx.strokeStyle = plant.bloomed ? '#50ef39' : '#998844';
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.moveTo(plant.x + 30, 280);
-        ctx.lineTo(plant.x + 30, 280 - stemHeight);
-        ctx.stroke();
-
-        // Lush leaves
-        if (growth > 0.25) {
-          ctx.fillStyle = plant.bloomed ? '#35c422' : '#776633';
-          ctx.beginPath();
-          ctx.ellipse(plant.x + 14, 280 - stemHeight * 0.6, 14 * growth, 7 * growth, -0.4, 0, Math.PI * 2);
-          ctx.ellipse(plant.x + 46, 280 - stemHeight * 0.7, 14 * growth, 7 * growth, 0.4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        // Bloom flower
-        if (plant.bloomed) {
-          ctx.fillStyle = '#ff44aa';
-          ctx.beginPath();
-          ctx.arc(plant.x + 30, 280 - stemHeight - 4, 12, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#ffff55';
-          ctx.beginPath();
-          ctx.arc(plant.x + 30, 280 - stemHeight - 4, 5, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        // Pot Label
-        ctx.fillStyle = '#8899aa';
-        ctx.font = '9px monospace';
+        var growth = bed.moisture / 100;
+        ctx.font = '34px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(plant.label, plant.x + 30, 354);
+        if (bed.harvested) {
+          ctx.fillStyle = '#50ef39';
+          ctx.font = 'bold 14px monospace';
+          ctx.fillText('✅ HARVESTED', bed.x + bed.w / 2, bed.y + 50);
+        } else if (bed.ripe) {
+          var bob = Math.sin(Date.now() * 0.008) * 6;
+          ctx.fillText(bed.icon, bed.x + bed.w / 2, bed.y + 40 + bob);
+          ctx.fillStyle = '#f5f557';
+          ctx.font = 'bold 11px monospace';
+          ctx.fillText('CLICK TO HARVEST!', bed.x + bed.w / 2, bed.y + 65);
+        } else {
+          ctx.strokeStyle = '#2ecc71';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(bed.x + bed.w / 2, bed.y + 90);
+          ctx.lineTo(bed.x + bed.w / 2, bed.y + 90 - growth * 45);
+          ctx.stroke();
+          if (growth > 0.4) {
+            ctx.fillStyle = '#27ae60';
+            ctx.beginPath();
+            ctx.arc(bed.x + bed.w / 2 - 12, bed.y + 90 - growth * 35, 8 * growth, 0, Math.PI * 2);
+            ctx.arc(bed.x + bed.w / 2 + 12, bed.y + 90 - growth * 35, 8 * growth, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText(bed.label, bed.x + bed.w / 2, bed.y + 162);
       });
 
-      // Watering Hose Nozzle at Mouse
-      ctx.fillStyle = '#445566';
-      ctx.fillRect(mousePos.x - 18, mousePos.y - 12, 36, 22);
+      for (var sp = sparkles.length - 1; sp >= 0; sp--) {
+        var s = sparkles[sp];
+        s.x += s.vx;
+        s.y += s.vy;
+        s.life -= 0.03;
+        ctx.fillStyle = s.color;
+        ctx.globalAlpha = Math.max(0, s.life);
+        ctx.fillRect(s.x, s.y, 6, 6);
+        ctx.globalAlpha = 1.0;
+        if (s.life <= 0) sparkles.splice(sp, 1);
+      }
+
+      ctx.fillStyle = '#3a4b59';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.fillRect(mousePos.x - 14, mousePos.y - 12, 28, 22);
+      ctx.strokeRect(mousePos.x - 14, mousePos.y - 12, 28, 22);
       ctx.fillStyle = '#38fedc';
       ctx.fillRect(mousePos.x - 6, mousePos.y + 10, 12, 6);
 
-      // HUD Text
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 13px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('HOLD CLICK & WATER WILTING POTS UNTIL FULLY BLOOMED', canvas.width / 2, 50);
+      ctx.fillText('HOLD CLICK TO IRRIGATE BEDS 100% — THEN CLICK TO HARVEST!', canvas.width / 2, 54);
 
-      if (allBloomed && !finished) {
+      if (allHarvested && !finished) {
         finished = true;
+        if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('hit', 0.6);
         ctx.fillStyle = '#50ef39';
-        ctx.font = 'bold 22px monospace';
+        ctx.font = 'bold 19px monospace';
+        ctx.fillText('🥔 VEGGIES HARVESTED! (+22% FOOD, +18% O2, -18% CO2)', canvas.width / 2, 110);
+        setTimeout(onComplete, 900);
+        return;
+      }
+
+      animId = requestAnimationFrame(loop);
+    }
+    loop();
+  }
+
+  // ==============================================================
+  // MINI-GAME 1B: ECLSS WATER FILTRATION (WATER RECYCLE)
+  // ==============================================================
+  function runWaterRecycleGame(canvas, onComplete) {
+    var ctx = canvas.getContext('2d');
+    var animId = null;
+    var filters = [
+      { id: 'charcoal', label: '1. ACTIVATED CHARCOAL', x: 40, y: 70,  w: 180, h: 62, flushed: false },
+      { id: 'ro',       label: '2. REVERSE OSMOSIS',   x: 40, y: 155, w: 180, h: 62, flushed: false },
+      { id: 'uv',       label: '3. UV PURIFIER',       x: 40, y: 240, w: 180, h: 62, flushed: false }
+    ];
+
+    var waterTank = { x: 260, y: 65, w: 110, h: 245, level: 15 };
+    var pumpBtn = { x: 395, y: 140, w: 120, h: 90, pressed: false };
+    var bubbles = [];
+    var finished = false;
+
+    function getMouse(e) {
+      var rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    function onMouseDown(e) {
+      var m = getMouse(e);
+      filters.forEach(function (f) {
+        if (!f.flushed && m.x >= f.x && m.x <= f.x + f.w && m.y >= f.y && m.y <= f.y + f.h) {
+          f.flushed = true;
+          if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('lockondone', 0.5);
+        }
+      });
+      if (m.x >= pumpBtn.x && m.x <= pumpBtn.x + pumpBtn.w && m.y >= pumpBtn.y && m.y <= pumpBtn.y + pumpBtn.h) {
+        pumpBtn.pressed = true;
+      }
+    }
+
+    function onMouseUp() {
+      pumpBtn.pressed = false;
+    }
+
+    canvas.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mouseup', onMouseUp);
+
+    stateCleanup = function () {
+      if (animId) cancelAnimationFrame(animId);
+      canvas.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    function loop() {
+      ctx.fillStyle = '#0f1824';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('FLUSH 3 CLOGGED VALVES, THEN HOLD PUMP TO FILL WATER TANK', canvas.width / 2, 38);
+
+      var allFlushed = filters.every(function (f) { return f.flushed; });
+
+      filters.forEach(function (f) {
+        ctx.fillStyle = f.flushed ? '#1b3b27' : '#3b1c1c';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 4;
+        ctx.fillRect(f.x, f.y, f.w, f.h);
+        ctx.strokeRect(f.x, f.y, f.w, f.h);
+
+        ctx.fillStyle = f.flushed ? '#2ecc71' : '#e74c3c';
+        ctx.beginPath();
+        ctx.arc(f.x + 24, f.y + f.h / 2, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(f.label, f.x + 44, f.y + 26);
+
+        ctx.font = '10px monospace';
+        ctx.fillStyle = f.flushed ? '#50ef39' : '#f39c12';
+        ctx.fillText(f.flushed ? 'FLUSHED & NOMINAL' : 'CLOGGED — CLICK TO FLUSH', f.x + 44, f.y + 46);
+      });
+
+      ctx.strokeStyle = allFlushed ? '#00bfff' : '#445566';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(220, 100);
+      ctx.lineTo(260, 100);
+      ctx.moveTo(220, 185);
+      ctx.lineTo(260, 185);
+      ctx.moveTo(220, 270);
+      ctx.lineTo(260, 270);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.fillRect(waterTank.x, waterTank.y, waterTank.w, waterTank.h);
+      ctx.strokeRect(waterTank.x, waterTank.y, waterTank.w, waterTank.h);
+
+      if (allFlushed && pumpBtn.pressed) {
+        waterTank.level = Math.min(100, waterTank.level + 0.65);
+        bubbles.push({
+          x: waterTank.x + 15 + Math.random() * (waterTank.w - 30),
+          y: waterTank.y + waterTank.h - 10,
+          vy: -2 - Math.random() * 3,
+          r: 2 + Math.random() * 4
+        });
+      }
+
+      var fillH = (waterTank.h - 10) * (waterTank.level / 100);
+      ctx.fillStyle = '#00bfff';
+      ctx.fillRect(waterTank.x + 5, waterTank.y + waterTank.h - fillH - 5, waterTank.w - 10, fillH);
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      for (var b = bubbles.length - 1; b >= 0; b--) {
+        var bb = bubbles[b];
+        bb.y += bb.vy;
+        ctx.beginPath();
+        ctx.arc(bb.x, bb.y, bb.r, 0, Math.PI * 2);
+        ctx.stroke();
+        if (bb.y <= waterTank.y + waterTank.h - fillH) bubbles.splice(b, 1);
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('H2O RESERVE: ' + Math.round(waterTank.level) + '%', waterTank.x + waterTank.w / 2, waterTank.y + waterTank.h + 20);
+
+      var canPump = allFlushed;
+      ctx.fillStyle = canPump ? (pumpBtn.pressed ? '#16a085' : '#1abc9c') : '#444c56';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      var byOff = pumpBtn.pressed ? 4 : 0;
+      ctx.fillRect(pumpBtn.x, pumpBtn.y + byOff, pumpBtn.w, pumpBtn.h - byOff);
+      ctx.strokeRect(pumpBtn.x, pumpBtn.y + byOff, pumpBtn.w, pumpBtn.h - byOff);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px monospace';
+      ctx.fillText('PUMP CLEAN', pumpBtn.x + pumpBtn.w / 2, pumpBtn.y + 40 + byOff);
+      ctx.fillText('H2O', pumpBtn.x + pumpBtn.w / 2, pumpBtn.y + 60 + byOff);
+
+      if (waterTank.level >= 100 && !finished) {
+        finished = true;
+        if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('hit', 0.6);
+        ctx.fillStyle = '#50ef39';
+        ctx.font = 'bold 18px monospace';
+        ctx.fillText('💧 ECLSS WATER PURIFIED! (+30% WATER)', canvas.width / 2, 180);
+        setTimeout(onComplete, 900);
+        return;
+      }
+
+      animId = requestAnimationFrame(loop);
+    }
+    loop();
+  }
+
+  // ==============================================================
+  // MINI-GAME 1C: CO2 SCRUBBER & O2 SENSOR (AIR SYSTEM)
+  // ==============================================================
+  function runCo2ScrubberGame(canvas, onComplete) {
+    var ctx = canvas.getContext('2d');
+    var animId = null;
+    var canisters = [
+      { id: 1, x: 50,  y: 70, w: 120, h: 120, vented: false },
+      { id: 2, x: 210, y: 70, w: 120, h: 120, vented: false },
+      { id: 3, x: 370, y: 70, w: 120, h: 120, vented: false }
+    ];
+
+    var slider = { x: 80, y: 275, w: 380, h: 16, val: 27.5, dragging: false };
+    var steamParticles = [];
+    var finished = false;
+
+    function getMouse(e) {
+      var rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    function onMouseDown(e) {
+      var m = getMouse(e);
+      canisters.forEach(function (c) {
+        if (!c.vented && m.x >= c.x && m.x <= c.x + c.w && m.y >= c.y && m.y <= c.y + c.h) {
+          c.vented = true;
+          if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('pullup', 0.5);
+          for (var p = 0; p < 25; p++) {
+            steamParticles.push({
+              x: c.x + c.w / 2,
+              y: c.y + 20,
+              vx: (Math.random() - 0.5) * 6,
+              vy: -2 - Math.random() * 5,
+              r: 4 + Math.random() * 7,
+              alpha: 0.9
+            });
+          }
+        }
+      });
+
+      var handleX = slider.x + ((slider.val - 15.0) / 15.0) * slider.w;
+      if (Math.hypot(m.x - handleX, m.y - slider.y) < 26) {
+        slider.dragging = true;
+      }
+    }
+
+    function onMouseMove(e) {
+      if (!slider.dragging) return;
+      var m = getMouse(e);
+      var ratio = Math.max(0, Math.min(1, (m.x - slider.x) / slider.w));
+      slider.val = 15.0 + ratio * 15.0;
+    }
+
+    function onMouseUp() {
+      slider.dragging = false;
+    }
+
+    canvas.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    stateCleanup = function () {
+      if (animId) cancelAnimationFrame(animId);
+      canvas.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    function loop() {
+      ctx.fillStyle = '#141724';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('VENT 3 SATURATED ZEOLITE CANISTERS & CALIBRATE O2 TO 21.0 kPa', canvas.width / 2, 38);
+
+      for (var s = steamParticles.length - 1; s >= 0; s--) {
+        var sp = steamParticles[s];
+        sp.x += sp.vx;
+        sp.y += sp.vy;
+        sp.r += 0.3;
+        sp.alpha -= 0.025;
+        ctx.fillStyle = 'rgba(200, 220, 235, ' + Math.max(0, sp.alpha) + ')';
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, sp.r, 0, Math.PI * 2);
+        ctx.fill();
+        if (sp.alpha <= 0) steamParticles.splice(s, 1);
+      }
+
+      canisters.forEach(function (c, idx) {
+        ctx.fillStyle = c.vented ? '#1e382b' : '#3d1d1d';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 4;
+        ctx.fillRect(c.x, c.y, c.w, c.h);
+        ctx.strokeRect(c.x, c.y, c.w, c.h);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('🌱 GREENHOUSE RESTORED! (+20% O2)', canvas.width / 2, 170);
+        ctx.fillText('ZEOLITE #' + (idx + 1), c.x + c.w / 2, c.y + 24);
+
+        ctx.font = '32px sans-serif';
+        ctx.fillText(c.vented ? '🫧' : '⚠️', c.x + c.w / 2, c.y + 68);
+
+        ctx.font = 'bold 10px monospace';
+        ctx.fillStyle = c.vented ? '#50ef39' : '#e74c3c';
+        ctx.fillText(c.vented ? 'VENTED NOMINAL' : 'CLICK TO VENT', c.x + c.w / 2, c.y + 104);
+      });
+
+      var allVented = canisters.every(function (c) { return c.vented; });
+      var isOptimal = Math.abs(slider.val - 21.0) <= 0.6;
+
+      ctx.fillStyle = '#22283a';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.fillRect(40, 220, 460, 130);
+      ctx.strokeRect(40, 220, 460, 130);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('OXYGEN REGULATOR: ' + slider.val.toFixed(1) + ' kPa ' + (isOptimal ? '✨ [OPTIMAL 21.0 kPa]' : ''), canvas.width / 2, 250);
+
+      ctx.fillStyle = '#10141f';
+      ctx.fillRect(slider.x, slider.y, slider.w, slider.h);
+      ctx.strokeRect(slider.x, slider.y, slider.w, slider.h);
+
+      var targetX1 = slider.x + ((20.4 - 15.0) / 15.0) * slider.w;
+      var targetW = ((21.6 - 20.4) / 15.0) * slider.w;
+      ctx.fillStyle = 'rgba(80, 239, 57, 0.4)';
+      ctx.fillRect(targetX1, slider.y - 4, targetW, slider.h + 8);
+
+      var handleX = slider.x + ((slider.val - 15.0) / 15.0) * slider.w;
+      ctx.fillStyle = isOptimal ? '#50ef39' : '#38fedc';
+      ctx.beginPath();
+      ctx.arc(handleX, slider.y + slider.h / 2, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      if (allVented && isOptimal && !finished) {
+        finished = true;
+        if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('hit', 0.6);
+        ctx.fillStyle = '#50ef39';
+        ctx.font = 'bold 18px monospace';
+        ctx.fillText('🫧 CO2 VENTED & O2 AT 21.0 kPa! (-45% CO2, +18% O2)', canvas.width / 2, 335);
+        setTimeout(onComplete, 900);
+        return;
+      }
+
+      animId = requestAnimationFrame(loop);
+    }
+    loop();
+  }
+
+  // ==============================================================
+  // MINI-GAME 1D: SABATIER FUEL & BENZINE PUMP (FUEL SYNTH)
+  // ==============================================================
+  function runFuelSynthGame(canvas, onComplete) {
+    var ctx = canvas.getContext('2d');
+    var animId = null;
+
+    var nozzle = { x: 60, y: 120, w: 90, h: 45, docked: false, dragging: false };
+    var dock = { x: 190, y: 110, w: 60, h: 65 };
+    var tank = { x: 370, y: 70, w: 120, h: 250, fill: 10 };
+    var pressure = 20;
+    var pumpLever = { x: 230, y: 280, w: 100, h: 50, pressed: false };
+    var finished = false;
+
+    function getMouse(e) {
+      var rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    function onMouseDown(e) {
+      var m = getMouse(e);
+      if (!nozzle.docked && m.x >= nozzle.x && m.x <= nozzle.x + nozzle.w && m.y >= nozzle.y && m.y <= nozzle.y + nozzle.h) {
+        nozzle.dragging = true;
+      }
+      if (nozzle.docked && m.x >= pumpLever.x && m.x <= pumpLever.x + pumpLever.w && m.y >= pumpLever.y && m.y <= pumpLever.y + pumpLever.h) {
+        pumpLever.pressed = true;
+      }
+    }
+
+    function onMouseMove(e) {
+      if (nozzle.dragging) {
+        var m = getMouse(e);
+        nozzle.x = m.x - nozzle.w / 2;
+        nozzle.y = m.y - nozzle.h / 2;
+        if (Math.hypot(nozzle.x - dock.x, nozzle.y - dock.y) < 40) {
+          nozzle.x = dock.x;
+          nozzle.y = dock.y + 10;
+          nozzle.docked = true;
+          nozzle.dragging = false;
+          if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('lockondone', 0.5);
+        }
+      }
+    }
+
+    function onMouseUp() {
+      nozzle.dragging = false;
+      pumpLever.pressed = false;
+    }
+
+    canvas.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    stateCleanup = function () {
+      if (animId) cancelAnimationFrame(animId);
+      canvas.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    function loop() {
+      ctx.fillStyle = '#16141c';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('CONNECT NOZZLE & PUMP PROPELLANT IN GREEN ZONE UNTIL 100%', canvas.width / 2, 38);
+
+      if (pumpLever.pressed && nozzle.docked) {
+        pressure = Math.min(95, pressure + 1.2);
+        if (pressure >= 40 && pressure <= 65) {
+          tank.fill = Math.min(100, tank.fill + 0.55);
+        } else if (pressure > 65) {
+          tank.fill = Math.min(100, tank.fill + 0.15);
+        }
+      } else {
+        pressure = Math.max(15, pressure - 0.7);
+      }
+
+      ctx.fillStyle = nozzle.docked ? '#2ecc71' : '#445566';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.fillRect(dock.x, dock.y, dock.w, dock.h);
+      ctx.strokeRect(dock.x, dock.y, dock.w, dock.h);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText(nozzle.docked ? 'LOCKED' : 'DOCK', dock.x + dock.w / 2, dock.y + 36);
+
+      ctx.strokeStyle = '#e67e22';
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(0, 140);
+      ctx.bezierCurveTo(40, 240, nozzle.x - 30, nozzle.y + 40, nozzle.x, nozzle.y + 20);
+      ctx.stroke();
+
+      ctx.fillStyle = nozzle.docked ? '#27ae60' : '#f39c12';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.fillRect(nozzle.x, nozzle.y, nozzle.w, nozzle.h);
+      ctx.strokeRect(nozzle.x, nozzle.y, nozzle.w, nozzle.h);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(nozzle.docked ? 'CONNECTED' : 'DRAG NOZZLE', nozzle.x + nozzle.w / 2, nozzle.y + 26);
+
+      var gaugeX = 280;
+      var gaugeY = 170;
+      var gaugeR = 48;
+      ctx.fillStyle = '#222533';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(gaugeX, gaugeY, gaugeR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle = '#2ecc71';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.arc(gaugeX, gaugeY, gaugeR - 8, Math.PI * 0.9, Math.PI * 1.6);
+      ctx.stroke();
+
+      var needleAngle = Math.PI * 0.6 + (pressure / 100) * (Math.PI * 1.4);
+      ctx.strokeStyle = '#e74c3c';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(gaugeX, gaugeY);
+      ctx.lineTo(gaugeX + Math.cos(needleAngle) * (gaugeR - 12), gaugeY + Math.sin(needleAngle) * (gaugeR - 12));
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(Math.round(pressure) + ' PSI', gaugeX, gaugeY + 28);
+
+      var byOff = pumpLever.pressed ? 4 : 0;
+      ctx.fillStyle = nozzle.docked ? (pumpLever.pressed ? '#d35400' : '#e67e22') : '#444c56';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.fillRect(pumpLever.x, pumpLever.y + byOff, pumpLever.w, pumpLever.h - byOff);
+      ctx.strokeRect(pumpLever.x, pumpLever.y + byOff, pumpLever.w, pumpLever.h - byOff);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText('PUMP FUEL', pumpLever.x + pumpLever.w / 2, pumpLever.y + 30 + byOff);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.fillRect(tank.x, tank.y, tank.w, tank.h);
+      ctx.strokeRect(tank.x, tank.y, tank.w, tank.h);
+
+      var fillH = (tank.h - 10) * (tank.fill / 100);
+      ctx.fillStyle = '#f39c12';
+      ctx.fillRect(tank.x + 5, tank.y + tank.h - fillH - 5, tank.w - 10, fillH);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText('FUEL: ' + Math.round(tank.fill) + '%', tank.x + tank.w / 2, tank.y + tank.h + 20);
+
+      if (tank.fill >= 100 && !finished) {
+        finished = true;
+        if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('hit', 0.6);
+        ctx.fillStyle = '#50ef39';
+        ctx.font = 'bold 18px monospace';
+        ctx.fillText('⛽ PROPELLANT SYNTHESIZED! (+28% FUEL, -15% CO2)', canvas.width / 2, 180);
         setTimeout(onComplete, 900);
         return;
       }
@@ -1863,6 +2374,9 @@ window.RTM.Tasks = (function () {
     var canvas = shell(taskId);
     if (!canvas) return;
     if (taskId === 'o2_filter') runGreenhouseGame(canvas, finish);
+    else if (taskId === 'water_recycle') runWaterRecycleGame(canvas, finish);
+    else if (taskId === 'co2_scrubber') runCo2ScrubberGame(canvas, finish);
+    else if (taskId === 'fuel_synth') runFuelSynthGame(canvas, finish);
     else if (taskId === 'wires') runWiresGame(canvas, finish);
     else if (taskId === 'cargo') runHullWelderGame(canvas, finish);
     else if (taskId === 'science') runCommsDishGame(canvas, finish);

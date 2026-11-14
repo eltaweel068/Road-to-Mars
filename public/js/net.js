@@ -61,7 +61,8 @@ window.RTM.Net = (function () {
       fuel: 100, o2: 100, food: 100, science: 0, marsProgress: 0,
       maxMass: 1080, totalMass: 0, crewMass: 0, aliveCount: 0,
       ghostCount: 0, massPenalty: 1, starving: false, overloaded: false,
-      hull: 100, autopilot: true, emergencyMode: null
+      hull: 100, autopilot: true, emergencyMode: null,
+      water: 100, co2: 8, gyroDrift: 0, marsArrived: false
     },
     tasks: { progress: 0, completions: 0, byTask: {} },
     settings: { rocket: 'falcon9', sciencePayload: 'medium', foodMass: 160, o2Mass: 150, fuelMass: 250 },
@@ -458,9 +459,15 @@ window.RTM.Net = (function () {
         var t = state.telemetry;
         offline.recompute();
         var penalty = Math.max(1, t.massPenalty);
-        t.o2 = Math.max(0, t.o2 - 0.015 * t.aliveCount);
-        t.food = Math.max(0, t.food - 0.015 * t.aliveCount);
+        var aliveCount = Math.max(0, t.aliveCount != null ? t.aliveCount : 1);
+        t.o2 = Math.max(0, t.o2 - 0.015 * aliveCount);
+        t.food = Math.max(0, t.food - 0.015 * aliveCount);
         t.fuel = Math.max(0, t.fuel - 0.08 * penalty);
+        t.water = Math.min(100, Math.max(0, (t.water != null ? t.water : 100) - 0.018 * aliveCount));
+        t.co2   = Math.min(100, Math.max(0, (t.co2 != null ? t.co2 : 8) + 0.035 * aliveCount));
+        if (t.co2 > 75) {
+          t.o2 = Math.max(0, t.o2 - 0.02);
+        }
         t.marsProgress = Math.min(100, t.marsProgress + 1.4 / penalty);
         t.starving = t.food <= 0;
         dispatchTelemetry();
@@ -805,8 +812,21 @@ window.RTM.Net = (function () {
       if (taskId === 'wires') {
         t.fuel = Math.min(100, Math.max(0, t.fuel + 15));
       } else if (taskId === 'o2_filter') {
-        t.o2 = Math.min(100, Math.max(0, t.o2 + 20));
+        t.food = Math.min(100, Math.max(0, t.food + 22));
+        t.o2 = Math.min(100, Math.max(0, t.o2 + 18));
+        t.co2 = Math.min(100, Math.max(0, (t.co2 != null ? t.co2 : 10) - 18));
+        t.water = Math.min(100, Math.max(10, (t.water != null ? t.water : 100) - 8));
+        t.starving = false;
+      } else if (taskId === 'water_recycle') {
+        t.water = Math.min(100, Math.max(0, (t.water != null ? t.water : 100) + 30));
+      } else if (taskId === 'co2_scrubber') {
+        t.co2 = Math.min(100, Math.max(4, (t.co2 != null ? t.co2 : 10) - 45));
+        t.o2 = Math.min(100, Math.max(0, t.o2 + 18));
+      } else if (taskId === 'fuel_synth') {
+        t.fuel = Math.min(100, Math.max(0, t.fuel + 28));
+        t.co2 = Math.min(100, Math.max(4, (t.co2 != null ? t.co2 : 10) - 15));
       } else if (taskId === 'nav') {
+        t.gyroDrift = 0;
         t.marsProgress = Math.min(100, Math.max(0, t.marsProgress + 8));
         t.autopilot = true;
       } else if (taskId === 'cargo') {
@@ -862,7 +882,7 @@ window.RTM.Net = (function () {
         state.marsArrived = true;
         state.telemetry.marsArrived = true;
         dispatch('mars:arrived', {
-          message: '🪐 The spacecraft has arrived safely in Mars orbit! You can continue tasks and free flight!',
+          message: '🪐 وصلت المركبة إلى مدار المريخ بسلام! يمكنك مواصلة المهام والطيران الحر!',
           telemetry: state.telemetry
         });
       }
@@ -928,10 +948,25 @@ window.RTM.Net = (function () {
           break;
         case 'cockpit:obstacle:hit':
           if (state.phase === 'playing') {
-            state.telemetry.hull = Math.min(100, Math.max(0, (state.telemetry.hull != null ? state.telemetry.hull : 100) - 5));
+            state.telemetry.hull = Math.min(100, Math.max(0, (state.telemetry.hull != null ? state.telemetry.hull : 100) - 6));
+            state.telemetry.gyroDrift = Math.min(100, Math.max(0, (state.telemetry.gyroDrift || 0) + 18));
             offline.recompute();
             dispatchTelemetry();
             offline.checkWin();
+          }
+          break;
+        case 'cockpit:gyro:calibrated':
+          if (state.phase === 'playing') {
+            state.telemetry.gyroDrift = 0;
+            offline.recompute();
+            dispatchTelemetry();
+          }
+          break;
+        case 'cockpit:fuel:synth':
+          if (state.phase === 'playing') {
+            state.telemetry.fuel = Math.min(100, Math.max(0, (state.telemetry.fuel || 0) + 18));
+            offline.recompute();
+            dispatchTelemetry();
           }
           break;
         case 'cockpit:wave:cleared':

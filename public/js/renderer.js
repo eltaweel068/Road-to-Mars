@@ -11,18 +11,21 @@
   const WORLD_W = 3200;
   const WORLD_H = 2000;
 
-  // 10-Room Layout Stations (All 10 Interactive Canvas Mini-Game Stations)
+  // 13-Room Layout Stations (All 13 Interactive Closed-Loop Mini-Game Stations)
   const TASK_STATIONS = {
-    wires:         { x: 850,  y: 1350, room: 'Electrical', label: 'WIRES' },
-    o2_filter:     { x: 2250, y: 450,  room: 'O2 & Greenhouse', label: 'O2 FILTER' },
-    nav:           { x: 2640, y: 1040, room: 'Navigation', label: 'RADAR LOCK' },
-    cargo:         { x: 1500, y: 1450, room: 'Storage & Airlock', label: 'HULL WELD' },
-    science:       { x: 850,  y: 450,  room: 'Science Lab', label: 'DSN DISH' },
-    cheese_grill:  { x: 1820, y: 740,  room: 'Cafeteria Galley', label: 'GRILL ROMY CHEESE' },
-    reactor_cool:  { x: 380,  y: 650,  room: 'Upper Reactor', label: 'COOL REACTOR CORE' },
-    engine_align:  { x: 380,  y: 1420, room: 'Lower Engine', label: 'ALIGN THRUSTER' },
-    shields_prime: { x: 2560, y: 1560, room: 'Weapons & Shields', label: 'PRIME DEFLECTORS' },
-    medbay_scan:   { x: 1120, y: 620,  room: 'MedBay Lab', label: 'BIO-HEALTH SCAN' },
+    o2_filter:     { x: 2260, y: 430,  room: 'GREENHOUSE FARM',   label: 'GROW VEGGIES & O2' },
+    water_recycle: { x: 2480, y: 500,  room: 'WATER ECLSS BAY',   label: 'RECYCLE WATER (H2O)' },
+    co2_scrubber:  { x: 2080, y: 500,  room: 'AIR SENSOR BAY',    label: 'SCRUB CO2 & O2 SENSOR' },
+    cheese_grill:  { x: 1820, y: 740,  room: 'CAFETERIA GALLEY',  label: 'GRILL ROMY CHEESE' },
+    fuel_synth:    { x: 380,  y: 560,  room: 'UPPER REACTOR',     label: 'PUMP & SYNTH FUEL' },
+    reactor_cool:  { x: 380,  y: 720,  room: 'UPPER REACTOR',     label: 'COOL REACTOR CORE' },
+    engine_align:  { x: 380,  y: 1420, room: 'LOWER ENGINE',      label: 'ALIGN THRUSTER' },
+    wires:         { x: 850,  y: 1350, room: 'ELECTRICAL',        label: 'FIX POWER WIRES' },
+    cargo:         { x: 1550, y: 1480, room: 'STORAGE',           label: 'WELD HULL & CARGO' },
+    shields_prime: { x: 2560, y: 1560, room: 'SHIELDS',           label: 'PRIME DEFLECTORS' },
+    science:       { x: 850,  y: 430,  room: 'SCIENCE LAB',       label: 'ALIGN SATELLITE' },
+    medbay_scan:   { x: 1100, y: 600,  room: 'MEDBAY',            label: 'BIO-HEALTH SCAN' },
+    nav:           { x: 2780, y: 950,  room: 'NAVIGATION',        label: 'CALIBRATE GYRO & RADAR' }
   };
 
   const EMERGENCY_BUTTON = { x: 1400, y: 800 };
@@ -889,15 +892,18 @@
 
     drawSprite(ctx, 'chairArms', PILOT_CHAIR.x, PILOT_CHAIR.y, 58, 58);
     drawSprite(ctx, 'deskScreen', TASK_STATIONS.nav.x, TASK_STATIONS.nav.y, 72, 72);
+    _drawTaskStation(ctx, TASK_STATIONS.nav.x, TASK_STATIONS.nav.y, '#38fedc', 'CALIBRATE GYRO');
     drawSprite(ctx, 'desk', 2600, 900, 64, 64);
     drawSprite(ctx, 'satellite', 2930, 800, 76, 76);
 
     // ── 3. O2 & Greenhouse (2050 to 2450, 280 to 620) ──
-    _drawRoom(ctx, 2050, 280, 400, 340, '#384d43', 'O2 & GREENHOUSE');
+    _drawRoom(ctx, 2050, 280, 480, 340, '#384d43', 'GREENHOUSE & LIFE SUPPORT');
     drawSprite(ctx, 'glassDome', 2150, 360, 96, 96);
     drawSprite(ctx, 'glassDome', 2350, 360, 96, 96);
     drawSprite(ctx, 'pipeStraight', 2250, 410, 64, 44);
-    _drawTaskStation(ctx, TASK_STATIONS.o2_filter.x, TASK_STATIONS.o2_filter.y, '#2ecc71', 'O2 FILTER');
+    _drawTaskStation(ctx, TASK_STATIONS.o2_filter.x, TASK_STATIONS.o2_filter.y, '#2ecc71', 'GROW VEGGIES');
+    _drawTaskStation(ctx, TASK_STATIONS.water_recycle.x, TASK_STATIONS.water_recycle.y, '#00bfff', 'RECYCLE H2O');
+    _drawTaskStation(ctx, TASK_STATIONS.co2_scrubber.x, TASK_STATIONS.co2_scrubber.y, '#38fedc', 'SCRUB CO2');
 
     // ── 4. Weapons & Shields (2150 to 2550, 1280 to 1620) ──
     _drawRoom(ctx, 2150, 1280, 400, 340, '#4d3838', 'WEAPONS & SHIELDS');
@@ -943,6 +949,7 @@
     drawSprite(ctx, 'pipeStraight', 280, 480, 64, 48);
     drawSprite(ctx, 'rocketBase', 190, 580, 68, 68);
     drawSprite(ctx, 'barrel', 390, 680, 52, 52);
+    _drawTaskStation(ctx, TASK_STATIONS.fuel_synth.x, TASK_STATIONS.fuel_synth.y, '#f39c12', 'SYNTH FUEL');
     _drawTaskStation(ctx, TASK_STATIONS.reactor_cool.x, TASK_STATIONS.reactor_cool.y, '#3498db', 'CRYO COOL');
 
     // ── 9. Lower Reactor (120 to 480, 1140 to 1480) ──

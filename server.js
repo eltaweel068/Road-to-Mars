@@ -97,6 +97,9 @@ const TASK_IDS = Object.freeze([
   "nav",
   "cargo",
   "science",
+  "water_recycle",
+  "co2_scrubber",
+  "fuel_synth",
   "cheese_grill",
   "reactor_cool",
   "shields_prime",
@@ -236,6 +239,10 @@ function createTelemetry(
     massPenalty: 1,
     hull: 100,
     autopilot: true,
+    water: 100,        // 0..100% Clean Water Reserve
+    co2: 8,            // 0..100% CO2 Buildup (Danger > 70%)
+    gyroDrift: 0,      // 0..100% 3D IMU Gyroscope Drift
+    marsArrived: false,// True once marsProgress reaches 100%
     emergencyMode: null,
   };
 }
@@ -729,8 +736,21 @@ function applyTask(room, player, taskId, byBot = false) {
   if (taskId === "wires") {
     telemetry.fuel = clamp(telemetry.fuel + 15, 0, 100);
   } else if (taskId === "o2_filter") {
-    telemetry.o2 = clamp(telemetry.o2 + 20, 0, 100);
+    telemetry.food = clamp(telemetry.food + 22, 0, 100);
+    telemetry.o2 = clamp(telemetry.o2 + 18, 0, 100);
+    telemetry.co2 = clamp((telemetry.co2 ?? 10) - 18, 0, 100);
+    telemetry.water = clamp((telemetry.water ?? 100) - 8, 10, 100);
+    telemetry.starving = false;
+  } else if (taskId === "water_recycle") {
+    telemetry.water = clamp((telemetry.water ?? 100) + 30, 0, 100);
+  } else if (taskId === "co2_scrubber") {
+    telemetry.co2 = clamp((telemetry.co2 ?? 10) - 45, 4, 100);
+    telemetry.o2 = clamp(telemetry.o2 + 18, 0, 100);
+  } else if (taskId === "fuel_synth") {
+    telemetry.fuel = clamp(telemetry.fuel + 28, 0, 100);
+    telemetry.co2 = clamp((telemetry.co2 ?? 10) - 15, 4, 100);
   } else if (taskId === "nav") {
+    telemetry.gyroDrift = 0;
     telemetry.marsProgress = clamp(telemetry.marsProgress + 8, 0, 100);
     telemetry.autopilot = true;
   } else if (taskId === "cargo") {
@@ -857,6 +877,11 @@ function telemetryTick(room) {
   telemetry.o2 = clamp(telemetry.o2 - o2Drain, 0, 100);
   telemetry.food = clamp(telemetry.food - foodDrain, 0, 100);
   telemetry.fuel = clamp(telemetry.fuel - fuelDrain, 0, 100);
+  telemetry.water = clamp((telemetry.water ?? 100) - 0.018 * aliveCount, 0, 100);
+  telemetry.co2   = clamp((telemetry.co2 ?? 8) + 0.035 * aliveCount, 0, 100);
+  if (telemetry.co2 > 75) {
+    telemetry.o2 = clamp(telemetry.o2 - 0.02, 0, 100);
+  }
   telemetry.starving = telemetry.food <= 0;
 
   // Progressive Hull Wear if unmaintained or overloaded
@@ -922,7 +947,7 @@ function telemetryTick(room) {
     room.marsArrived = true;
     telemetry.marsArrived = true;
     io.to(room.id).emit("mars:arrived", {
-      message: "🪐 The spacecraft has arrived safely in Mars orbit! You can continue tasks and free flight!",
+      message: "🪐 وصلت المركبة إلى مدار المريخ بسلام! يمكنك مواصلة المهام والطيران الحر!",
       telemetry: room.telemetry,
     });
   }
@@ -2000,11 +2025,28 @@ function connectSocket(socket) {
   handle("cockpit:obstacle:hit", () => {
     const room = rooms.get(socket.data.roomId);
     if (!room || room.phase !== "playing") return;
-    room.telemetry.hull = clamp((room.telemetry.hull ?? 100) - 5, 0, 100);
+    room.telemetry.hull = clamp((room.telemetry.hull ?? 100) - 6, 0, 100);
+    room.telemetry.gyroDrift = clamp((room.telemetry.gyroDrift ?? 0) + 18, 0, 100);
     recomputeTelemetry(room);
     emitTelemetry(room);
     const win = computeWin(room);
     if (win) endGame(room, win.winner, win.reason);
+  });
+
+  handle("cockpit:gyro:calibrated", () => {
+    const room = rooms.get(socket.data.roomId);
+    if (!room || room.phase !== "playing") return;
+    room.telemetry.gyroDrift = 0;
+    recomputeTelemetry(room);
+    emitTelemetry(room);
+  });
+
+  handle("cockpit:fuel:synth", () => {
+    const room = rooms.get(socket.data.roomId);
+    if (!room || room.phase !== "playing") return;
+    room.telemetry.fuel = clamp((room.telemetry.fuel ?? 100) + 18, 0, 100);
+    recomputeTelemetry(room);
+    emitTelemetry(room);
   });
 
   handle("cockpit:obstacle:cleared", () => {

@@ -86,6 +86,10 @@ window.RTM.HUD = (function () {
 
     // O2 gauge
     body.appendChild(_makeGaugeRow('O2', 'gaugeO2', 'gauge-o2', '100%'));
+    // Water gauge
+    body.appendChild(_makeGaugeRow('WATER', 'barWater', 'gauge-water', '100%'));
+    // CO2 / O2 sensor
+    body.appendChild(_makeGaugeRow('CO2/O2', 'barCo2', 'gauge-co2', '8%'));
     // Food gauge
     body.appendChild(_makeGaugeRow('FOOD', 'gaugeFood', 'gauge-food', '100%'));
     // Fuel gauge
@@ -166,6 +170,12 @@ window.RTM.HUD = (function () {
     els.gaugeO2 = document.getElementById('gaugeO2');
     els.gaugeO2Pct = document.getElementById('gaugeO2Pct');
     els.gaugeO2Warn = document.getElementById('gaugeO2Warn');
+    els.barWater = document.getElementById('barWater');
+    els.barWaterPct = document.getElementById('barWaterPct');
+    els.txtWater = document.getElementById('txtWater');
+    els.barCo2 = document.getElementById('barCo2');
+    els.barCo2Pct = document.getElementById('barCo2Pct');
+    els.txtCo2 = document.getElementById('txtCo2');
     els.gaugeFood = document.getElementById('gaugeFood');
     els.gaugeFoodPct = document.getElementById('gaugeFoodPct');
     els.gaugeFoodWarn = document.getElementById('gaugeFoodWarn');
@@ -239,6 +249,24 @@ window.RTM.HUD = (function () {
     var o2 = _clamp(telemetry.o2 != null ? telemetry.o2 : 100, 0, 100);
     _animateGauge(els.gaugeO2, els.gaugeO2Pct, o2);
     _setWarning(els.gaugeO2Warn, o2 < 35, 'LOW O2!', 'gaugeO2');
+
+    /* --- Water --- */
+    var water = _clamp(telemetry.water != null ? telemetry.water : 100, 0, 100);
+    _animateGauge(els.barWater, els.barWaterPct, water);
+    if (els.txtWater) els.txtWater.textContent = Math.round(water) + '% H₂O';
+
+    /* --- CO2 / O2 Sensor --- */
+    var co2 = _clamp(telemetry.co2 != null ? telemetry.co2 : 8, 0, 100);
+    if (els.barCo2) {
+      els.barCo2.style.transition = 'width 0.4s ease, background 0.3s ease';
+      els.barCo2.style.width = co2 + '%';
+      els.barCo2.style.background = co2 > 65 ? '#e74c3c' : (co2 > 40 ? '#f39c12' : '#2ecc71');
+    }
+    if (els.barCo2Pct) els.barCo2Pct.textContent = Math.round(co2) + '%';
+    if (els.txtCo2) {
+      els.txtCo2.textContent = Math.round(co2) + '% CO₂ | ' + Math.round(o2) + '% O₂';
+      els.txtCo2.style.color = co2 > 65 ? '#e74c3c' : (co2 > 40 ? '#f39c12' : '#38fedc');
+    }
 
     /* --- Food --- */
     var food = _clamp(telemetry.food != null ? telemetry.food : 100, 0, 100);
@@ -595,7 +623,7 @@ window.RTM.HUD = (function () {
       });
 
       RTM.Net.on('mars:arrived', function (data) {
-        showNotification((data && data.message) || '🪐 Mars Orbit Reached Safely! Continue tasks and free flight freely!', 'success', 7000);
+        showNotification((data && data.message) || '🪐 وصلنا للمريخ بسلام! كمل مهامك وسواقة السفينة براحتك!', 'success', 7000);
         var taskBarText = document.getElementById('taskBarText') || document.querySelector('.taskbar-label');
         if (taskBarText) {
           taskBarText.textContent = '🪐 MARS ORBIT REACHED — FREE PLAY MODE (100%)';
@@ -610,6 +638,7 @@ window.RTM.HUD = (function () {
     createHUD: createHUD,
     createActionButtons: createActionButtons,
     updateHUD: updateHUD,
+    updateTelemetry: updateHUD,
     updateButtons: updateButtons,
     showNotification: showNotification,
     showKillAnimation: showKillAnimation
