@@ -21,7 +21,9 @@
 5. [The 10 Ship Compartments](#the-10-ship-compartments)
 6. [Interactive Controls and Keybindings](#interactive-controls-and-keybindings)
 7. [System Requirements and Local Installation](#system-requirements-and-local-installation)
-   - [Prerequisites (What You Must Have)](#prerequisites-what-you-must-have)
+   - [Mandatory Requirement: Node.js (Must Have)](#mandatory-requirement-nodejs-must-have)
+   - [How to Download and Install Node.js](#how-to-download-and-install-nodejs)
+   - [Hardware and Operating System Prerequisites](#hardware-and-operating-system-prerequisites)
    - [Step-by-Step Installation](#step-by-step-installation)
 8. [How to Boot the Game](#how-to-boot-the-game)
    - [Server Boot Options](#server-boot-options)
@@ -160,9 +162,114 @@ The ship layout spans **`3200 x 2000`** coordinate units with fully modeled bulk
 
 ## System Requirements and Local Installation
 
-### Prerequisites (What You Must Have)
+### Mandatory Requirement: Node.js (Must Have)
 
-Before setting up the game locally, ensure your host environment meets the following hardware and software requirements:
+**Node.js is strictly mandatory to run Road to Mars.** 
+The entire game engine is built on an authoritative Node.js and Socket.io architecture. Node.js powers:
+- The WebSocket server synchronizing multiplayer movement, physics, and actions.
+- The life-support simulation ticks (Oxygen, Fuel, Mass, Starvation, and Hull integrity).
+- Autonomous AI crewmate behavior and pathfinding.
+- Emergency meeting voting tallies and airlock ejection cutscenes.
+- Serving all 2D canvas assets, Three.js 3D GLTF models, and procedural audio.
+
+Without Node.js installed on your machine, the game server cannot boot.
+
+#### Required Version
+- **Minimum**: Node.js `v18.0.0`
+- **Recommended**: Node.js `v20.x` LTS or `v22.x` LTS
+- **Package Manager**: npm `v9.0.0+` (automatically included when installing Node.js)
+
+---
+
+### How to Download and Install Node.js
+
+Choose the installation option appropriate for your operating system:
+
+#### Option 1: Official Graphical Installer (Recommended for Beginners - Windows and macOS)
+1. Go to the official Node.js website: [https://nodejs.org/](https://nodejs.org/)
+2. On the home page, select the version labeled **LTS (Long Term Support)**, such as `v20.x` or `v22.x`.
+3. Download and run the installer:
+   - **Windows (`.msi`)**: Run the setup wizard. Accept the license agreement, choose your installation path, and make sure the option **"Add to PATH"** is enabled. Complete the installation.
+   - **macOS (`.pkg`)**: Open the downloaded package and follow the on-screen installer prompts.
+4. Close and reopen your terminal, PowerShell, or command prompt to refresh system environment variables.
+
+#### Option 2: Command-Line Package Managers (Windows, macOS, Linux)
+
+- **Windows (PowerShell as Administrator via winget)**:
+  ```powershell
+  winget install OpenJS.NodeJS.LTS
+  ```
+  Or via Chocolatey:
+  ```powershell
+  choco install nodejs-lts
+  ```
+
+- **macOS (via Homebrew)**:
+  ```bash
+  brew install node
+  ```
+
+- **Linux (Ubuntu / Debian / Linux Mint via NodeSource)**:
+  ```bash
+  # Download and configure the NodeSource PPA for Node.js 22.x
+  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+  
+  # Install Node.js and npm
+  sudo apt-get install -y nodejs
+  ```
+
+- **Linux (Fedora / RHEL / CentOS via DNF)**:
+  ```bash
+  sudo dnf install -y nodejs npm
+  ```
+
+- **Linux (Arch Linux / Manjaro via Pacman)**:
+  ```bash
+  sudo pacman -S nodejs npm
+  ```
+
+#### Option 3: Node Version Manager (Recommended for Advanced Users)
+Node Version Manager (`nvm` on Linux/macOS or `nvm-windows` on Windows) allows you to install and switch between multiple Node.js versions without root conflicts:
+
+- **Linux and macOS (`nvm`)**:
+  ```bash
+  # 1. Install nvm
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+  
+  # 2. Reload shell configuration
+  source ~/.bashrc   # or source ~/.zshrc on macOS
+  
+  # 3. Install and activate Node.js 22 LTS
+  nvm install 22
+  nvm use 22
+  ```
+
+- **Windows (`nvm-windows`)**:
+  1. Download `nvm-setup.exe` from the official repository: [https://github.com/coreybutler/nvm-windows/releases](https://github.com/coreybutler/nvm-windows/releases)
+  2. Run the installer and open a new PowerShell window.
+  3. Install and activate Node.js:
+     ```powershell
+     nvm install 22
+     nvm use 22
+     ```
+
+#### Verify Your Node.js and NPM Installation
+After installation, open your terminal or command prompt and run:
+```bash
+node -v
+npm -v
+```
+Both commands must output their installed version numbers without errors:
+- Expected `node -v` output: `v18.x.x`, `v20.x.x`, or `v22.x.x`
+- Expected `npm -v` output: `9.x.x` or `10.x.x`
+
+If both commands return version numbers, Node.js is ready and you can proceed with local installation.
+
+---
+
+### Hardware and Operating System Prerequisites
+
+Ensure your host environment meets the following hardware and software requirements:
 
 1. **Hardware Specifications**:
    - **Processor**: 64-bit dual-core CPU (Intel Core i3 / AMD Ryzen 3 / Apple Silicon M-series or equivalent).
@@ -175,22 +282,6 @@ Before setting up the game locally, ensure your host environment meets the follo
    - **Windows**: Windows 10 or Windows 11 (native PowerShell, Command Prompt, or WSL2).
 
 3. **Software & Runtime Dependencies**:
-   - **Node.js**: Version `18.0.0` or higher (`Node.js v20.x` LTS or `v22.x` is strongly recommended).  
-     Verify your installation by running:
-     ```bash
-     node --version
-     ```
-     If Node.js is not installed, install it via [nodejs.org](https://nodejs.org/) or using Node Version Manager (`nvm`):
-     ```bash
-     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-     nvm install 22
-     nvm use 22
-     ```
-   - **NPM**: Version `9.0.0` or higher (comes bundled with Node.js).  
-     Verify with:
-     ```bash
-     npm --version
-     ```
    - **Git**: Required to clone and manage project source code.  
      Verify with:
      ```bash
