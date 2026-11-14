@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <!-- SpaceX Falcon 9 Block 5 -->
+  <defs>
+    <linearGradient id="f9White" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#cbd5e1"/>
+      <stop offset="45%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="f9Black" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="f9Flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="40%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </linearGradient>
+  </defs>
+  <!-- Flame Plume -->
+  <polygon points="44,85 56,85 53,99 50,101 47,99" fill="url(#f9Flame)"/>
+  <!-- Merlin 1D Octaweb -->
+  <polygon points="43,80 57,80 56,85 44,85" fill="#334155" stroke="#000" stroke-width="1.5"/>
+  <!-- First Stage Booster -->
+  <rect x="43" y="32" width="14" height="48" rx="1.5" fill="url(#f9White)" stroke="#000" stroke-width="2"/>
+  <!-- Landing Legs (folded) -->
+  <polygon points="43,79 38,81 43,81" fill="url(#f9Black)" stroke="#000" stroke-width="1.5"/>
+  <polygon points="57,79 62,81 57,81" fill="url(#f9Black)" stroke="#000" stroke-width="1.5"/>
+  <!-- Black Interstage -->
+  <rect x="43" y="26" width="14" height="6" fill="url(#f9Black)" stroke="#000" stroke-width="1.5"/>
+  <!-- Titanium Grid Fins -->
+  <polygon points="43,27 37,27 38,30 43,30" fill="#475569" stroke="#000" stroke-width="1"/>
+  <polygon points="57,27 63,27 62,30 57,30" fill="#475569" stroke="#000" stroke-width="1"/>
+  <!-- Second Stage -->
+  <rect x="43.5" y="19" width="13" height="7" fill="url(#f9White)" stroke="#000" stroke-width="1.5"/>
+  <!-- Payload Fairing -->
+  <path d="M42.5,19 C42.5,10 46,3 50,3 C54,3 57.5,10 57.5,19 Z" fill="url(#f9White)" stroke="#000" stroke-width="2"/>
+  <!-- Fairing Split Line -->
+  <line x1="50" y1="3" x2="50" y2="19" stroke="#000" stroke-width="1.5" stroke-dasharray="2,2"/>
+  <!-- SpaceX Logo mark -->
+  <path d="M46,45 Q50,42 54,45" stroke="#0f172a" stroke-width="2" fill="none"/>
+  <circle cx="50" cy="54" r="1.5" fill="#0f172a"/>
+</svg>

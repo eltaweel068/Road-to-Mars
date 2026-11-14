@@ -10,6 +10,7 @@ window.RTM.Main = (function () {
 
   function cache() {
     els.canvas = document.getElementById('gameCanvas');
+    els.welcome = document.getElementById('welcomeScreen');
     els.lobby = document.getElementById('lobbyScreen');
     els.roleReveal = document.getElementById('roleReveal');
     els.shhh = document.getElementById('shhhText');
@@ -55,6 +56,7 @@ window.RTM.Main = (function () {
     if (RTM.Moon) RTM.Moon.setActive(false);
     if (RTM.Meeting) RTM.Meeting.hide();
     if (RTM.Tasks) RTM.Tasks.close();
+    setDisplay(els.welcome, false);
     setDisplay(els.lobby, false);
     setDisplay(els.roleReveal, true);
     if (els.shhh) els.shhh.textContent = '🚀 ROAD TO MARS';
@@ -83,7 +85,9 @@ window.RTM.Main = (function () {
       return;
     }
     if (phase === 'lobby' || phase === 'menu') {
-      setDisplay(els.lobby, true);
+      var inRoom = !!(gameState.room && (gameState.room.id || gameState.room.code));
+      setDisplay(els.welcome, !inRoom, 'flex');
+      setDisplay(els.lobby, inRoom, 'flex');
       setDisplay(els.roleReveal, false);
       setDisplay(els.meeting, false);
       gameplayHudVisible(false);
@@ -91,6 +95,7 @@ window.RTM.Main = (function () {
       if (RTM.Moon) RTM.Moon.setActive(false);
       return;
     }
+    setDisplay(els.welcome, false);
     setDisplay(els.lobby, false);
     if (phase === 'meeting') {
       gameplayHudVisible(false);

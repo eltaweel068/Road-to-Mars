@@ -318,38 +318,68 @@ window.RTM.Lobby = (function () {
     }
   }
 
-  function wireQuickJoinBar() {
-    var nameInput = document.getElementById('quickPlayerName');
-    var createBtn = document.getElementById('quickCreateRoomBtn');
-    var codeInput = document.getElementById('quickRoomCodeInput');
-    var joinBtn = document.getElementById('quickJoinRoomBtn');
+  function wireWelcomeAndHangar() {
+    var nameInput = document.getElementById('welcomePlayerName');
+    var createBtn = document.getElementById('welcomeCreateRoomBtn');
+    var codeInput = document.getElementById('welcomeRoomCodeInput');
+    var joinBtn = document.getElementById('welcomeJoinRoomBtn');
+    var archiveBtn = document.getElementById('welcomeNasaArchiveBtn');
+    var leaveBtn = document.getElementById('hangarLeaveRoomBtn');
+    var copyBtn = document.getElementById('copyRoomCodeBtn');
+    var colorPicker = document.getElementById('welcomeColorPicker');
+    var beanCanvas = document.getElementById('welcomeCrewmateCanvas');
 
     var storedName = '';
-    try { storedName = localStorage.getItem('rtm-player-name') || ''; } catch (_) {}
+    var storedColor = COLORS[0];
+    try {
+      storedName = localStorage.getItem('rtm-player-name') || '';
+      storedColor = localStorage.getItem('rtm-player-color') || COLORS[0];
+    } catch (_) {}
     if (!storedName) {
       storedName = 'Astronaut-' + Math.floor(Math.random() * 900 + 100);
       try { localStorage.setItem('rtm-player-name', storedName); } catch (_) {}
     }
 
+    function updateWelcomeBean() {
+      if (beanCanvas) {
+        drawLobbySlotBean(beanCanvas, { color: storedColor, specialty: 'pilot' }, lobbyAnimTick);
+      }
+    }
+
     if (nameInput) {
       nameInput.value = storedName;
       nameInput.addEventListener('input', function () {
-        var val = nameInput.value.trim();
-        try { localStorage.setItem('rtm-player-name', val); } catch (_) {}
-        var state = RTM.Net.getState();
-        var localPlayer = state.players[RTM.Net.playerId];
-        var col = (localPlayer && localPlayer.color) || COLORS[0];
-        RTM.Net.emit('player:register', { name: val, color: col });
+        storedName = nameInput.value.trim() || 'Astronaut';
+        try { localStorage.setItem('rtm-player-name', storedName); } catch (_) {}
+        RTM.Net.emit('player:register', { name: storedName, color: storedColor });
+      });
+    }
+
+    if (colorPicker) {
+      colorPicker.innerHTML = '';
+      COLORS.forEach(function (c) {
+        var dot = document.createElement('button');
+        dot.type = 'button';
+        dot.className = 'welcome-color-dot' + (c === storedColor ? ' active' : '');
+        dot.style.background = c;
+        dot.title = 'Choose Suit Color';
+        dot.addEventListener('click', function () {
+          storedColor = c;
+          try { localStorage.setItem('rtm-player-color', c); } catch (_) {}
+          var dots = colorPicker.querySelectorAll('.welcome-color-dot');
+          dots.forEach(function (d) { d.classList.toggle('active', d.style.background === c); });
+          updateWelcomeBean();
+          RTM.Net.emit('player:register', { name: storedName, color: storedColor });
+        });
+        colorPicker.appendChild(dot);
       });
     }
 
     if (createBtn) {
       createBtn.addEventListener('click', function () {
-        var name = (nameInput ? nameInput.value.trim() : '') || 'Captain';
-        var state = RTM.Net.getState();
-        var localPlayer = state.players[RTM.Net.playerId];
-        var col = (localPlayer && localPlayer.color) || COLORS[0];
-        RTM.Net.emit('player:register', { name: name, color: col });
+        var name = (nameInput ? nameInput.value.trim() : '') || storedName || 'Commander';
+        RTM.Net.emit('player:register', { name: name, color: storedColor });
+        createSent = true;
         RTM.Net.emit('room:create', {});
       });
     }
@@ -358,14 +388,52 @@ window.RTM.Lobby = (function () {
       joinBtn.addEventListener('click', function () {
         var code = codeInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
         if (code.length >= 4) {
-          var name = (nameInput ? nameInput.value.trim() : '') || 'Explorer';
-          var state = RTM.Net.getState();
-          var localPlayer = state.players[RTM.Net.playerId];
-          var col = (localPlayer && localPlayer.color) || COLORS[0];
-          RTM.Net.emit('player:register', { name: name, color: col });
+          var name = (nameInput ? nameInput.value.trim() : '') || storedName || 'Explorer';
+          RTM.Net.emit('player:register', { name: name, color: storedColor });
           RTM.Net.emit('room:join', { roomId: code });
         } else {
           alert('Please enter a valid 4 to 6 character Room Code!');
+        }
+      });
+      codeInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') joinBtn.click();
+      });
+    }
+
+    if (archiveBtn) {
+      archiveBtn.addEventListener('click', function () {
+        if (RTM.NasaArchive && RTM.NasaArchive.open) {
+          RTM.NasaArchive.open();
+        }
+      });
+    }
+
+    if (leaveBtn) {
+      leaveBtn.addEventListener('click', function () {
+        RTM.Net.emit('room:leave', {});
+        createSent = false;
+        var st = RTM.Net.getState();
+        st.room = null;
+        st.phase = 'lobby';
+        if (RTM.Main && RTM.Main.refreshGameplay) RTM.Main.refreshGameplay();
+      });
+    }
+
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function () {
+        var room = RTM.Net.getState().room;
+        var code = room ? (room.code || room.id || '') : '';
+        if (!code) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(function () {
+            copyBtn.textContent = 'COPIED! ✅';
+            if (RTM.HUD && RTM.HUD.showNotification) {
+              RTM.HUD.showNotification('Room code ' + code + ' copied to clipboard!', 'success');
+            }
+            setTimeout(function () {
+              copyBtn.textContent = '📋 COPY';
+            }, 2000);
+          });
         }
       });
     }
@@ -552,12 +620,6 @@ window.RTM.Lobby = (function () {
     var code = (params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (code.length >= 4) {
       RTM.Net.emit('room:join', { roomId: code });
-      clearTimeout(joinTimer);
-      joinTimer = setTimeout(function () {
-        if (!RTM.Net.getState().room) createRoom();
-      }, 1400);
-    } else {
-      createRoom();
     }
   }
 
@@ -601,11 +663,17 @@ window.RTM.Lobby = (function () {
 
   function init() {
     cache();
-    wireQuickJoinBar();
+    wireWelcomeAndHangar();
 
     if (!lobbyLoopId) {
       function lobbyAnimLoop() {
         lobbyAnimTick++;
+        var welcomeCanvas = document.getElementById('welcomeCrewmateCanvas');
+        if (welcomeCanvas && welcomeCanvas.offsetParent !== null) {
+          var storedColor = COLORS[0];
+          try { storedColor = localStorage.getItem('rtm-player-color') || COLORS[0]; } catch (_) {}
+          drawLobbySlotBean(welcomeCanvas, { color: storedColor, specialty: 'pilot' }, lobbyAnimTick);
+        }
         if (els.playerGrid) {
           var canvases = els.playerGrid.querySelectorAll('.slot-crewmate-canvas');
           var gameState = RTM.Net ? RTM.Net.getState() : {};

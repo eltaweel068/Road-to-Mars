@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <!-- Light Spectrometer & Sensor Array -->
+  <defs>
+    <linearGradient id="specGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="specSolar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="50%" stop-color="#0369a1"/>
+      <stop offset="100%" stop-color="#075985"/>
+    </linearGradient>
+    <linearGradient id="prismRainbow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="25%" stop-color="#f59e0b"/>
+      <stop offset="50%" stop-color="#10b981"/>
+      <stop offset="75%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <!-- Left Solar Panel -->
+  <rect x="6" y="34" width="28" height="32" rx="2" fill="url(#specSolar)" stroke="#000" stroke-width="2"/>
+  <line x1="6" y1="44" x2="34" y2="44" stroke="#38fedc" stroke-width="1"/>
+  <line x1="6" y1="54" x2="34" y2="54" stroke="#38fedc" stroke-width="1"/>
+  <line x1="20" y1="34" x2="20" y2="66" stroke="#38fedc" stroke-width="1"/>
+  <line x1="34" y1="50" x2="38" y2="50" stroke="#000" stroke-width="2.5"/>
+
+  <!-- Right Solar Panel -->
+  <rect x="66" y="34" width="28" height="32" rx="2" fill="url(#specSolar)" stroke="#000" stroke-width="2"/>
+  <line x1="66" y1="44" x2="94" y2="44" stroke="#38fedc" stroke-width="1"/>
+  <line x1="66" y1="54" x2="94" y2="54" stroke="#38fedc" stroke-width="1"/>
+  <line x1="80" y1="34" x2="80" y2="66" stroke="#38fedc" stroke-width="1"/>
+  <line x1="62" y1="50" x2="66" y2="50" stroke="#000" stroke-width="2.5"/>
+
+  <!-- Spectrometer Main Gold Body (MLI insulation) -->
+  <rect x="36" y="26" width="28" height="48" rx="4" fill="url(#specGold)" stroke="#000" stroke-width="2.5"/>
+  <line x1="36" y1="38" x2="64" y2="38" stroke="#b45309" stroke-width="1.5"/>
+  <line x1="36" y1="50" x2="64" y2="50" stroke="#b45309" stroke-width="1.5"/>
+  <line x1="36" y1="62" x2="64" y2="62" stroke="#b45309" stroke-width="1.5"/>
+
+  <!-- Optical Telescope Lens / Spectrometer Aperture -->
+  <circle cx="50" cy="18" r="9" fill="#0f172a" stroke="#000" stroke-width="2"/>
+  <circle cx="50" cy="18" r="6" fill="#38fedc" opacity="0.85"/>
+  <circle cx="48" cy="16" r="2" fill="#ffffff"/>
+
+  <!-- Dispersion Spectrum Rainbow Beam -->
+  <polygon points="50,18 42,4 58,4" fill="url(#prismRainbow)" opacity="0.85"/>
+
+  <!-- High Gain Antenna Dish -->
+  <path d="M42,74 Q50,84 58,74" stroke="#000" stroke-width="2.5" fill="none"/>
+  <line x1="50" y1="78" x2="50" y2="86" stroke="#000" stroke-width="2"/>
+  <circle cx="50" cy="87" r="2" fill="#ef4444"/>
+</svg>

@@ -21,35 +21,85 @@
   <!-- UI layer: all HTML overlays sit here -->
   <div id="uiLayer">
 
-    <!-- ===== LOBBY / COLLABORATIVE ENGINEERING BAY ===== -->
-    <div id="lobbyScreen" class="screen">
-      <div class="au-panel lobby-panel hangar-panel">
-        <div class="lobby-quick-join-bar">
-          <div class="quick-join-left">
-            <label class="quick-label">CREW IDENTITY</label>
-            <input type="text" id="quickPlayerName" class="au-input au-input-name" maxlength="15" placeholder="Enter Call-sign (e.g. Major Tom)">
+    <!-- ===== SCREEN 1: WELCOME & MISSION CONTROL GATEWAY ===== -->
+    <div id="welcomeScreen" class="screen welcome-screen" style="display:flex;">
+      <div class="au-panel welcome-card">
+        <div class="welcome-header">
+          <div class="welcome-kicker">NASA MISSION CONTROL · DEEP SPACE GATEWAY</div>
+          <h1 class="welcome-title">ROAD TO MARS</h1>
+          <p class="welcome-subtitle">Multiplayer Space Exploration &amp; Survival. Coordinate with your crew to reach Mars orbit safely.</p>
+        </div>
+
+        <!-- Identity & Codename -->
+        <div class="welcome-identity-box">
+          <span class="welcome-section-label">ASTRONAUT IDENTITY &amp; SUIT COLOR</span>
+          <div class="welcome-identity-row">
+            <canvas id="welcomeCrewmateCanvas" class="welcome-bean-canvas" width="80" height="90"></canvas>
+            <div class="welcome-identity-inputs">
+              <input type="text" id="welcomePlayerName" class="au-input welcome-input-name" maxlength="15" placeholder="Call-sign (e.g. Major Tom)">
+              <div class="welcome-color-picker" id="welcomeColorPicker"></div>
+            </div>
           </div>
-          <div class="quick-join-center">
-            <button id="quickCreateRoomBtn" class="au-btn au-btn-green">
+        </div>
+
+        <!-- Split Options: Host vs Join -->
+        <div class="welcome-choice-grid">
+          <!-- CARD A: CREATE ROOM -->
+          <div class="welcome-choice-card card-host">
+            <div class="choice-badge badge-host">HOST</div>
+            <div class="choice-icon">🚀</div>
+            <h2 class="choice-title">CREATE EXPEDITION</h2>
+            <p class="choice-desc">Start a new mission as Flight Commander. Choose launch vehicles, configure life support reserves, and launch your crew to Mars.</p>
+            <button type="button" id="welcomeCreateRoomBtn" class="au-btn au-btn-green welcome-action-btn">
               <span class="btn-icon">➕</span> CREATE ROOM
             </button>
           </div>
-          <div class="quick-join-right">
-            <input type="text" id="quickRoomCodeInput" class="au-input au-input-code" maxlength="6" placeholder="ROOM CODE">
-            <button id="quickJoinRoomBtn" class="au-btn au-btn-blue">
-              <span class="btn-icon">🚪</span> JOIN BY CODE
-            </button>
+
+          <!-- CARD B: JOIN ROOM -->
+          <div class="welcome-choice-card card-join">
+            <div class="choice-badge badge-join">JOIN</div>
+            <div class="choice-icon">🔑</div>
+            <h2 class="choice-title">JOIN BY CODE</h2>
+            <p class="choice-desc">Enter the 6-character room code provided by your commander to report for duty in the engineering bay.</p>
+            <div class="welcome-join-inputs">
+              <input type="text" id="welcomeRoomCodeInput" class="au-input welcome-input-code" maxlength="6" placeholder="ROOM CODE">
+              <button type="button" id="welcomeJoinRoomBtn" class="au-btn au-btn-blue welcome-action-btn">
+                <span class="btn-icon">🚪</span> JOIN MISSION
+              </button>
+            </div>
           </div>
         </div>
+
+        <div class="welcome-footer">
+          <button type="button" id="welcomeNasaArchiveBtn" class="au-btn au-btn-gray archive-open-btn">
+            <span>🪐</span> NASA 3D &amp; PHOTO ARCHIVE
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN 2: IN-ROOM HANGAR & COLLABORATIVE ENGINEERING BAY ===== -->
+    <div id="lobbyScreen" class="screen" style="display:none;">
+      <div class="au-panel lobby-panel hangar-panel">
         <div class="hangar-header">
-          <div>
-            <div class="hangar-kicker">NASA PRE-LAUNCH ENGINEERING BAY</div>
-            <h1 class="lobby-title">ROAD TO MARS</h1>
-            <p class="hangar-subtitle">Every crew member can tune the mission. Changes sync live for the whole room.</p>
+          <div class="hangar-header-left">
+            <button type="button" id="hangarLeaveRoomBtn" class="au-btn au-btn-gray hangar-leave-btn">
+              <span>⬅</span> LEAVE
+            </button>
+            <div>
+              <div class="hangar-kicker">NASA PRE-LAUNCH ENGINEERING BAY</div>
+              <h1 class="lobby-title">ROAD TO MARS</h1>
+              <p class="hangar-subtitle">Every crew member can tune the mission. Changes sync live for the whole room.</p>
+            </div>
           </div>
           <div class="room-code-wrap">
             <span class="room-code-label">ROOM CODE</span>
-            <span id="roomCode" class="room-code">????</span>
+            <div class="room-code-row">
+              <span id="roomCode" class="room-code">????</span>
+              <button type="button" id="copyRoomCodeBtn" class="au-btn au-btn-blue copy-code-btn" title="Copy Room Code">
+                📋 COPY
+              </button>
+            </div>
           </div>
         </div>
 
@@ -117,15 +167,15 @@
               <span class="config-label">LAUNCH VEHICLE</span>
               <div class="mission-option-grid" id="rocketTabs">
                 <button type="button" class="mission-option" data-rocket="0">
-                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/craft_speederA_SE.png" alt="Electron"></div>
+                  <div class="option-preview"><img src="/assets/icons/rocket_electron.svg" alt="Electron"></div>
                   <strong>ELECTRON</strong><span>Max 1200 kg</span><small>High Agility</small>
                 </button>
                 <button type="button" class="mission-option active" data-rocket="1">
-                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/craft_cargoA_SE.png" alt="Falcon 9"></div>
+                  <div class="option-preview"><img src="/assets/icons/rocket_falcon9.svg" alt="Falcon 9"></div>
                   <strong>FALCON 9</strong><span>Max 1600 kg</span><small>Balanced Heavy Lift</small>
                 </button>
                 <button type="button" class="mission-option" data-rocket="2">
-                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/craft_miner_SE.png" alt="SLS"></div>
+                  <div class="option-preview"><img src="/assets/icons/rocket_sls.svg" alt="SLS"></div>
                   <strong>SLS BLOCK 1B</strong><span>Max 2200 kg</span><small>Super Heavy Exploration</small>
                 </button>
               </div>
@@ -135,15 +185,15 @@
               <span class="config-label">SCIENCE PAYLOAD</span>
               <div class="mission-option-grid" id="payloadTabs">
                 <button type="button" class="mission-option" data-payload="0">
-                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/satelliteDish_detailed_SE.png" alt="Spectrometer"></div>
+                  <div class="option-preview"><img src="/assets/icons/payload_spectrometer.svg" alt="Spectrometer"></div>
                   <strong>LIGHT SPECTROMETER</strong><span>70 kg</span><small>90 Science</small>
                 </button>
                 <button type="button" class="mission-option active" data-payload="1">
-                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/rover_SE.png" alt="Rover"></div>
+                  <div class="option-preview"><img src="/assets/icons/payload_rover.svg" alt="Rover"></div>
                   <strong>MARS ROVER LAB</strong><span>190 kg</span><small>200 Science</small>
                 </button>
                 <button type="button" class="mission-option" data-payload="2">
-                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/machine_generatorLarge_SE.png" alt="Nuclear Drill"></div>
+                  <div class="option-preview"><img src="/assets/icons/payload_drill.svg" alt="Nuclear Drill"></div>
                   <strong>NUCLEAR DEEP DRILL</strong><span>340 kg</span><small>380 Science</small>
                 </button>
               </div>
