@@ -1,31 +1,85 @@
 # Dependencies
 node_modules/
+.pnp
+.pnp.js
 
-# Logs
+# Project specifications and documentation
+3D_NASA_MODELS_AUTOPILOT_AND_TASKS_SPEC.md
+FIX_UI_TASKS_AND_3D_PHYSICS_SPEC.md
+GAMEPLAY_AND_UI_OVERHAUL_SPEC.md
+NASA_ASSETS_CATALOG.md
+*_SPEC.md
+
+# Package manifests
+package.json
+package-lock.json
+
+# Logs and runtime debugging
 *.log
 server.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Runtime and environment
+# Environment and secrets
 .env
 .env.local
-.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
 
-# Operating system files
+# Runtime data & process IDs
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Test results and coverage
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Build caches and temporary files
+.cache/
+.parcel-cache/
+.eslintcache
+*.tmp
+*.swp
+*.swo
+*~
+*.bak
+
+# Operating System files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
 
 # Editor and IDE settings
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .idea/
-.vscode/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
+*.sublime-project
+*.sublime-workspace
 
-# Temporary and swap files
-*.tmp
-*.swp
-*~
+# Python bytecode (local test scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
