@@ -75,6 +75,313 @@ window.RTM.Cockpit = (function () {
     if (!MARS_POS) MARS_POS = new THREE.Vector3(260, -90, -2650);
   }
 
+  var NASA_MODELS = [
+    {
+      id: 'bennu',
+      name: 'Asteroid 101955 Bennu',
+      url: '/nasa-models/Asteroid 101955 Bennu.stl',
+      scale: 0.045,
+      type: 'stl',
+      fact: 'Target of NASA OSIRIS-REx; ancient carbon-rich rubble pile.'
+    },
+    {
+      id: 'toutatis',
+      name: 'Asteroid 4179 Toutatis',
+      url: '/nasa-models/Asteroid 4179 Toutatis.stl',
+      scale: 0.05,
+      type: 'stl',
+      fact: 'Chaotic tumbler; 2 lobes connected by a narrow neck.'
+    },
+    {
+      id: 'geographos',
+      name: 'Asteroid 1620 Geographos',
+      url: '/nasa-models/Asteroid 1620 Geographos.stl',
+      scale: 0.06,
+      type: 'stl',
+      fact: 'Most elongated known body in the Solar System (4:1 ratio).'
+    },
+    {
+      id: 'kleopatra',
+      name: 'Asteroid 216 Kleopatra',
+      url: '/nasa-models/Asteroid 216 Kleopatra.stl',
+      scale: 0.035,
+      type: 'stl',
+      fact: 'Metallic dog-bone asteroid with two orbiting moons: Alexhelios and Cleoselene.'
+    },
+    {
+      id: 'block_island',
+      name: 'Martian Meteorite: Block Island',
+      url: '/nasa-models/Block Island.stl',
+      scale: 0.04,
+      type: 'stl',
+      fact: 'Largest iron meteorite found on Mars by rover Opportunity in 2009.'
+    },
+    {
+      id: 'itokawa',
+      name: 'Asteroid 25143 Itokawa',
+      url: '/nasa-models/Asteroid 25143 Itokawa.stl',
+      scale: 0.035,
+      type: 'stl',
+      fact: 'Contact binary rubble pile asteroid visited by JAXA Hayabusa.'
+    }
+  ];
+
+  var nasaGeometryCache = {};
+  var activeLasers = [];
+  var activeObstacles = [];
+  var explosionParticles = [];
+  var obstaclesClearedCount = 0;
+  var laserMaterial = null;
+  var cameraShakeTime = 0;
+
+  function preloadNasaModels(onReady) {
+    if (typeof THREE.STLLoader === 'undefined') {
+      if (onReady) onReady();
+      return;
+    }
+    var stlLoader = new THREE.STLLoader();
+    var loadedCount = 0;
+
+    NASA_MODELS.forEach(function (item) {
+      stlLoader.load(item.url, function (geometry) {
+        geometry.center();
+        geometry.computeVertexNormals();
+        nasaGeometryCache[item.id] = {
+          geometry: geometry,
+          meta: item
+        };
+        loadedCount++;
+        if (loadedCount >= NASA_MODELS.length && onReady) onReady();
+      }, undefined, function (err) {
+        console.warn('NASA model load notice:', item.name, err);
+        loadedCount++;
+        if (loadedCount >= NASA_MODELS.length && onReady) onReady();
+      });
+    });
+  }
+
+  function fireLaserCannons() {
+    if (!shipGroup || !open) return;
+    if (RTM.Audio) RTM.Audio.play('hit');
+
+    var wingOffset = 4.0;
+    var shipPos = shipGroup.position;
+    var muzzleZ = shipPos.z - 6;
+
+    var boltL = createLaserBolt(shipPos.x - wingOffset, shipPos.y, muzzleZ);
+    var boltR = createLaserBolt(shipPos.x + wingOffset, shipPos.y, muzzleZ);
+
+    scene.add(boltL);
+    scene.add(boltR);
+    activeLasers.push(boltL, boltR);
+  }
+
+  function createLaserBolt(x, y, z) {
+    var geo = new THREE.CylinderGeometry(0.2, 0.2, 6, 8);
+    geo.rotateX(Math.PI / 2);
+    if (!laserMaterial) laserMaterial = new THREE.MeshBasicMaterial({ color: 0x38fedc });
+    var mesh = new THREE.Mesh(geo, laserMaterial);
+    mesh.position.set(x, y, z);
+    mesh.userData = { speed: 320, distanceTraveled: 0 };
+    return mesh;
+  }
+
+  function spawnObstacleWave() {
+    obstaclesClearedCount = 0;
+    var asteroidKeys = Object.keys(nasaGeometryCache);
+
+    for (var i = 0; i < 18; i++) {
+      var isNasaAsteroid = i % 2 === 0 && asteroidKeys.length > 0;
+      var mesh;
+      var meta = null;
+
+      if (isNasaAsteroid) {
+        var key = asteroidKeys[i % asteroidKeys.length];
+        var cached = nasaGeometryCache[key];
+        var mat = new THREE.MeshStandardMaterial({
+          color: 0x8c8985,
+          roughness: 0.9,
+          metalness: 0.1
+        });
+        mesh = new THREE.Mesh(cached.geometry, mat);
+        mesh.scale.setScalar(cached.meta.scale * (1.5 + Math.random() * 0.8));
+        meta = cached.meta;
+      } else {
+        var brickGeo = new THREE.BoxGeometry(6, 4, 3);
+        var brickMat = new THREE.MeshStandardMaterial({
+          color: 0xef7d0d,
+          roughness: 0.4,
+          metalness: 0.6
+        });
+        mesh = new THREE.Mesh(brickGeo, brickMat);
+        meta = { name: 'Cosmic Space Debris', fact: 'Orbital booster stage fragment.' };
+      }
+
+      var shipX = shipGroup ? shipGroup.position.x : 0;
+      var shipY = shipGroup ? shipGroup.position.y : 0;
+      var shipZ = shipGroup ? shipGroup.position.z : 0;
+
+      mesh.position.set(
+        shipX + (Math.random() - 0.5) * 80,
+        shipY + (Math.random() - 0.5) * 45,
+        shipZ - 180 - (i * 45)
+      );
+
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+      mesh.userData = {
+        rotSpeedX: (Math.random() - 0.5) * 1.5,
+        rotSpeedY: (Math.random() - 0.5) * 1.5,
+        radius: 4.5,
+        meta: meta
+      };
+
+      scene.add(mesh);
+      activeObstacles.push(mesh);
+    }
+  }
+
+  function createExplosionParticles(pos) {
+    for (var p = 0; p < 12; p++) {
+      var pGeo = new THREE.SphereGeometry(0.4, 4, 4);
+      var pMat = new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? 0xef7d0d : 0x38fedc });
+      var pMesh = new THREE.Mesh(pGeo, pMat);
+      pMesh.position.copy(pos);
+      pMesh.userData = {
+        vx: (Math.random() - 0.5) * 20,
+        vy: (Math.random() - 0.5) * 20,
+        vz: (Math.random() - 0.5) * 20,
+        life: 0.5
+      };
+      scene.add(pMesh);
+      explosionParticles.push(pMesh);
+    }
+  }
+
+  function shakeCockpitCamera() {
+    cameraShakeTime = 0.35;
+  }
+
+  function showCockpitScanPopup(meta) {
+    if (!meta) return;
+    var popup = document.getElementById('cockpitScanPopup');
+    if (!popup) return;
+    popup.innerHTML = '<div class="cockpit-scan-title">🔍 ' + meta.name + '</div>' +
+                      '<div class="cockpit-scan-fact">' + (meta.fact || '') + '</div>';
+    popup.style.display = 'block';
+    setTimeout(function () {
+      if (popup) popup.style.display = 'none';
+    }, 4000);
+  }
+
+  function restoreAutopilot() {
+    if (RTM.Net) {
+      var state = RTM.Net.getState();
+      state.telemetry.autopilot = true;
+      state.telemetry.marsProgress = Math.min(100, (state.telemetry.marsProgress || 0) + 10);
+      RTM.Net.emit('cockpit:wave:cleared');
+    }
+    if (RTM.Audio) RTM.Audio.play('lockondone');
+
+    var banner = document.getElementById('cockpitWaveBanner');
+    if (banner) {
+      banner.className = 'cockpit-banner banner-success';
+      banner.innerHTML = '🎉 ASTEROID FIELD CLEARED! AUTOPILOT RESTORED (+10% PROGRESS)!';
+      banner.style.display = 'block';
+      setTimeout(function () { if (banner) banner.style.display = 'none'; }, 4000);
+    }
+  }
+
+  function updateLasersAndCollisions(dt) {
+    for (var l = activeLasers.length - 1; l >= 0; l--) {
+      var laser = activeLasers[l];
+      laser.position.z -= laser.userData.speed * dt;
+      laser.userData.distanceTraveled += laser.userData.speed * dt;
+
+      if (laser.userData.distanceTraveled > 400) {
+        scene.remove(laser);
+        activeLasers.splice(l, 1);
+        continue;
+      }
+
+      for (var o = activeObstacles.length - 1; o >= 0; o--) {
+        var obst = activeObstacles[o];
+        var dist = laser.position.distanceTo(obst.position);
+
+        if (dist < obst.userData.radius + 1.8) {
+          createExplosionParticles(obst.position);
+          if (RTM.Audio) RTM.Audio.play('bang');
+
+          if (RTM.Net) {
+            var state = RTM.Net.getState();
+            state.telemetry.science = (state.telemetry.science || 0) + 10;
+            RTM.Net.emit('cockpit:obstacle:cleared');
+          }
+          showCockpitScanPopup(obst.userData.meta);
+
+          scene.remove(obst);
+          activeObstacles.splice(o, 1);
+          scene.remove(laser);
+          activeLasers.splice(l, 1);
+
+          obstaclesClearedCount++;
+          if (obstaclesClearedCount >= 8) {
+            restoreAutopilot();
+          }
+          break;
+        }
+      }
+    }
+
+    for (var k = activeObstacles.length - 1; k >= 0; k--) {
+      var obs = activeObstacles[k];
+      obs.position.z += 35 * dt;
+      obs.rotation.x += obs.userData.rotSpeedX * dt;
+      obs.rotation.y += obs.userData.rotSpeedY * dt;
+
+      if (shipGroup) {
+        var shipDist = obs.position.distanceTo(shipGroup.position);
+        if (shipDist < obs.userData.radius + 3.0) {
+          createExplosionParticles(obs.position);
+          if (RTM.Audio) RTM.Audio.play('bang');
+          shakeCockpitCamera();
+
+          if (RTM.Net) {
+            var s = RTM.Net.getState();
+            s.telemetry.hull = Math.max(0, (s.telemetry.hull != null ? s.telemetry.hull : 100) - 4);
+            RTM.Net.emit('cockpit:obstacle:hit');
+          }
+
+          scene.remove(obs);
+          activeObstacles.splice(k, 1);
+          continue;
+        }
+      }
+
+      if (shipGroup && obs.position.z > shipGroup.position.z + 30) {
+        scene.remove(obs);
+        activeObstacles.splice(k, 1);
+      }
+    }
+
+    for (var ep = explosionParticles.length - 1; ep >= 0; ep--) {
+      var part = explosionParticles[ep];
+      part.position.x += part.userData.vx * dt;
+      part.position.y += part.userData.vy * dt;
+      part.position.z += part.userData.vz * dt;
+      part.userData.life -= dt;
+      if (part.userData.life <= 0) {
+        scene.remove(part);
+        explosionParticles.splice(ep, 1);
+      }
+    }
+
+    if (cameraShakeTime > 0 && camera) {
+      cameraShakeTime -= dt;
+      camera.position.x += (Math.random() - 0.5) * 1.5;
+      camera.position.y += (Math.random() - 0.5) * 1.5;
+    }
+  }
+
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
   }
@@ -513,7 +820,17 @@ window.RTM.Cockpit = (function () {
 
   function buildEarth() {
     var textureLoader = new THREE.TextureLoader();
-    var earthTex = textureLoader.load('/assets/kenney_planets/Planets/planet03.png');
+    var earthTex = textureLoader.load(
+      '/nasa-models/Earth (B).jpg',
+      function (tex) { tex.encoding = THREE.sRGBEncoding; },
+      undefined,
+      function () {
+        if (earthMesh && earthMesh.material) {
+          earthMesh.material.map = textureLoader.load('/assets/kenney_planets/Planets/planet03.png');
+          earthMesh.material.needsUpdate = true;
+        }
+      }
+    );
     earthTex.encoding = THREE.sRGBEncoding;
     earthMesh = new THREE.Mesh(
       new THREE.SphereGeometry(170, 64, 48),
@@ -549,11 +866,29 @@ window.RTM.Cockpit = (function () {
       satelliteMesh.position.set(232, 44, 0);
       satellitePivot.add(satelliteMesh);
     });
+
+    // Authentic NASA 3D Astronaut on EVA Spacewalk
+    loadFirstModel(['/nasa-models/Astronaut.glb'], function (model) {
+      var evaAstronaut = normalizeModel(model, 5.5);
+      evaAstronaut.position.set(242, 52, 12);
+      evaAstronaut.rotation.set(0.4, 0.8, -0.3);
+      satellitePivot.add(evaAstronaut);
+    });
   }
 
   function buildMoon() {
     var textureLoader = new THREE.TextureLoader();
-    var texture = textureLoader.load('/assets/kenney_planets/Planets/planet04.png');
+    var texture = textureLoader.load(
+      '/nasa-models/Apollo 11 - View of the Moon.jpg',
+      function (tex) { tex.encoding = THREE.sRGBEncoding; },
+      undefined,
+      function () {
+        if (moonMesh && moonMesh.material) {
+          moonMesh.material.map = textureLoader.load('/assets/kenney_planets/Planets/planet04.png');
+          moonMesh.material.needsUpdate = true;
+        }
+      }
+    );
     texture.encoding = THREE.sRGBEncoding;
     var moonBump = makeMoonTexture();
     var moonMat = new THREE.MeshStandardMaterial({
@@ -594,6 +929,15 @@ window.RTM.Cockpit = (function () {
       roverMesh.position.copy(MOON_POS).addScaledVector(dir, MOON_RADIUS + 3);
       roverMesh.rotation.y = Math.PI;
       scene.add(roverMesh);
+    }, function () {});
+
+    // Authentic NASA 3D Astronaut on the Lunar Surface
+    loadFirstModel(['/nasa-models/Astronaut.glb', '/nasa-models/Z2 Spacesuit.glb'], function (model) {
+      var moonAstronaut = normalizeModel(model, 6.0);
+      var aDir = new THREE.Vector3(0.08, 0.05, 0.99).normalize();
+      moonAstronaut.position.copy(MOON_POS).addScaledVector(aDir, MOON_RADIUS + 3);
+      moonAstronaut.rotation.y = Math.PI * 0.8;
+      scene.add(moonAstronaut);
     }, function () {});
   }
 
@@ -885,6 +1229,9 @@ window.RTM.Cockpit = (function () {
     element.style.cursor = 'crosshair';
     element.addEventListener('pointerdown', function (event) {
       if (!open) return;
+      if (event.button === 0) {
+        fireLaserCannons();
+      }
       mouseActive = true;
       pointerX = event.clientX;
       pointerY = event.clientY;
@@ -927,6 +1274,7 @@ window.RTM.Cockpit = (function () {
     updateEnvironment(timestamp, dt);
     updateGates(timestamp, dt);
     updateCaptureRing(dt);
+    updateLasersAndCollisions(dt);
     readoutTimer += dt;
     if (readoutTimer > 0.08) {
       readoutTimer = 0;
@@ -1221,9 +1569,8 @@ window.RTM.Cockpit = (function () {
     if (!root || !RTM.Net) return;
     var gameState = RTM.Net.getState();
     if (gameState.phase !== 'playing') return;
-    if (!RTM.Net.isPilot() && !RTM.Net.isHost()) {
-      if (RTM.HUD) RTM.HUD.showNotification('Only the pilot or host can access the flight console.', 'error');
-      return;
+    if (!RTM.Net.isPilot()) {
+      RTM.Net.emit('pilot:seat:claim');
     }
 
     buildScene();
@@ -1252,7 +1599,15 @@ window.RTM.Cockpit = (function () {
     lastTime = performance.now();
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(animate);
-    if (RTM.HUD) RTM.HUD.showNotification('FLIGHT DECK ONLINE — W/S pitch · A/D yaw · Q/E roll · Space afterburner', 'info');
+
+    if (RTM.Net) {
+      var s = RTM.Net.getState();
+      if (s && s.telemetry && s.telemetry.autopilot === false && activeObstacles.length === 0) {
+        spawnObstacleWave();
+      }
+    }
+
+    if (RTM.HUD) RTM.HUD.showNotification('FLIGHT DECK ONLINE — W/S pitch · A/D yaw · Space/Click to fire lasers', 'info');
   }
 
   function hide() {
@@ -1318,7 +1673,10 @@ window.RTM.Cockpit = (function () {
     } else if (event.key === 'l' || event.key === 'L') {
       event.preventDefault();
       land();
-    } else if (event.code === 'Space' || event.code.indexOf('Arrow') === 0) {
+    } else if (event.code === 'KeyF' || event.code === 'Space') {
+      event.preventDefault();
+      fireLaserCannons();
+    } else if (event.code.indexOf('Arrow') === 0) {
       event.preventDefault();
     } else if (event.code.indexOf('Digit') === 0) {
       var preset = Number(event.code.slice(5));
@@ -1357,6 +1715,7 @@ window.RTM.Cockpit = (function () {
     if (initialized) return;
     initialized = true;
     buildDom();
+    preloadNasaModels();
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('resize', resize);
@@ -1367,6 +1726,18 @@ window.RTM.Cockpit = (function () {
     });
 
     if (RTM.Net) {
+      RTM.Net.on('cockpit:asteroid:alert', function () {
+        if (open) {
+          spawnObstacleWave();
+          var banner = document.getElementById('cockpitWaveBanner');
+          if (banner) {
+            banner.className = 'cockpit-banner banner-danger';
+            banner.innerHTML = '⚠️ ASTEROID FIELD DETECTED! DEFEND THE SHIP!';
+            banner.style.display = 'block';
+            setTimeout(function () { if (banner) banner.style.display = 'none'; }, 4000);
+          }
+        }
+      });
       RTM.Net.on('pilot:seat:locked', maybeAutoOpen);
       RTM.Net.on('pilot:seat:updated', maybeAutoOpen);
       RTM.Net.on('pilot:seat:unlocked', function () {

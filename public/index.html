@@ -13,7 +13,10 @@
   <canvas id="gameCanvas" width="1400" height="800"></canvas>
 
   <!-- 3D pilot cockpit overlay (hidden by default) -->
-  <div id="cockpit3d"></div>
+  <div id="cockpit3d">
+    <div id="cockpitWaveBanner" class="cockpit-banner" style="display:none;"></div>
+    <div id="cockpitScanPopup" class="cockpit-scan-popup" style="display:none;"></div>
+  </div>
 
   <!-- UI layer: all HTML overlays sit here -->
   <div id="uiLayer">
@@ -21,6 +24,23 @@
     <!-- ===== LOBBY / COLLABORATIVE ENGINEERING BAY ===== -->
     <div id="lobbyScreen" class="screen">
       <div class="au-panel lobby-panel hangar-panel">
+        <div class="lobby-quick-join-bar">
+          <div class="quick-join-left">
+            <label class="quick-label">CREW IDENTITY</label>
+            <input type="text" id="quickPlayerName" class="au-input au-input-name" maxlength="15" placeholder="Enter Call-sign (e.g. Major Tom)">
+          </div>
+          <div class="quick-join-center">
+            <button id="quickCreateRoomBtn" class="au-btn au-btn-green">
+              <span class="btn-icon">➕</span> CREATE ROOM
+            </button>
+          </div>
+          <div class="quick-join-right">
+            <input type="text" id="quickRoomCodeInput" class="au-input au-input-code" maxlength="6" placeholder="ROOM CODE">
+            <button id="quickJoinRoomBtn" class="au-btn au-btn-blue">
+              <span class="btn-icon">🚪</span> JOIN BY CODE
+            </button>
+          </div>
+        </div>
         <div class="hangar-header">
           <div>
             <div class="hangar-kicker">NASA PRE-LAUNCH ENGINEERING BAY</div>
@@ -48,22 +68,6 @@
               <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
             </div>
 
-            <div class="config-section specialty-section">
-              <span class="config-label">YOUR CREW SPECIALTY</span>
-              <div id="specialtyPicker" class="specialty-picker">
-                <button type="button" class="specialty-btn active" data-specialty="pilot"><span class="specialty-hat">✈</span><span>PILOT &amp; NAVIGATOR</span></button>
-                <button type="button" class="specialty-btn" data-specialty="o2"><span class="specialty-hat">◌</span><span>O2 &amp; LIFE SUPPORT</span></button>
-                <button type="button" class="specialty-btn" data-specialty="chef"><span class="specialty-hat">♨</span><span>ROMY CHEESE QUARTERMASTER</span></button>
-                <button type="button" class="specialty-btn" data-specialty="propulsion"><span class="specialty-hat">▲</span><span>FLIGHT MASS &amp; PROPULSION</span></button>
-                <button type="button" class="specialty-btn" data-specialty="scientist"><span class="specialty-hat">✦</span><span>CHIEF SCIENTIST</span></button>
-                <button type="button" class="specialty-btn" data-specialty="electrical"><span class="specialty-hat">ϟ</span><span>ELECTRICAL ENGINEER</span></button>
-              </div>
-            </div>
-
-            <div class="mission-note">
-              <strong>COLLABORATIVE DESIGN:</strong> launchers, payloads, supplies and fuel below can be changed by
-              any player in the room. The host launches when the mission is ready.
-            </div>
           </section>
 
           <section class="hangar-right">
@@ -76,13 +80,16 @@
               <span class="config-label">LAUNCH VEHICLE</span>
               <div class="mission-option-grid" id="rocketTabs">
                 <button type="button" class="mission-option" data-rocket="0">
-                  <strong>ELECTRON</strong><span>Max 900 kg</span><small>High Agility</small>
+                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/rocket_topA_SE.png" alt="Electron"></div>
+                  <strong>ELECTRON</strong><span>Max 1200 kg</span><small>High Agility</small>
                 </button>
                 <button type="button" class="mission-option active" data-rocket="1">
-                  <strong>FALCON 9</strong><span>Max 1080 kg</span><small>Balanced</small>
+                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/rocket_fuelA_SE.png" alt="Falcon 9"></div>
+                  <strong>FALCON 9</strong><span>Max 1600 kg</span><small>Balanced Heavy Lift</small>
                 </button>
                 <button type="button" class="mission-option" data-rocket="2">
-                  <strong>SLS BLOCK 1B</strong><span>Max 1280 kg</span><small>Heavy Lift</small>
+                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/rocket_baseA_SE.png" alt="SLS"></div>
+                  <strong>SLS BLOCK 1B</strong><span>Max 2200 kg</span><small>Super Heavy Exploration</small>
                 </button>
               </div>
             </div>
@@ -91,12 +98,15 @@
               <span class="config-label">SCIENCE PAYLOAD</span>
               <div class="mission-option-grid" id="payloadTabs">
                 <button type="button" class="mission-option" data-payload="0">
+                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/satelliteDish_detailed_SE.png" alt="Spectrometer"></div>
                   <strong>LIGHT SPECTROMETER</strong><span>70 kg</span><small>90 Science</small>
                 </button>
                 <button type="button" class="mission-option active" data-payload="1">
+                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/rover_SE.png" alt="Rover"></div>
                   <strong>MARS ROVER LAB</strong><span>190 kg</span><small>200 Science</small>
                 </button>
                 <button type="button" class="mission-option" data-payload="2">
+                  <div class="option-preview"><img src="/assets/kenney_space-kit/Isometric/machine_generatorLarge_SE.png" alt="Nuclear Drill"></div>
                   <strong>NUCLEAR DEEP DRILL</strong><span>340 kg</span><small>380 Science</small>
                 </button>
               </div>
@@ -118,6 +128,23 @@
                 <input type="range" id="fuelSlider" class="au-slider" min="50" max="400" step="5" value="250">
                 <small id="fuelDuration">Δv reserve: 250 kg propellant</small>
               </label>
+            </div>
+
+            <div class="vibe-meter-card">
+              <div class="vibe-header">
+                <span class="vibe-title">🚀 EXPEDITION FLIGHT DYNAMICS</span>
+                <span id="vibeStatusBadge" class="vibe-badge vibe-easy">CALM CRUISE</span>
+              </div>
+              <div class="vibe-bar-track">
+                <div id="vibeFill" class="vibe-bar-fill" style="width: 35%;"></div>
+                <div class="vibe-marker marker-falcon9" style="left: 65%;">FALCON 9 CAP</div>
+                <div class="vibe-marker marker-sls" style="left: 85%;">SLS CAP</div>
+              </div>
+              <div class="vibe-stats-row">
+                <div class="vibe-stat"><span>🧀 FOOD MASS:</span> <strong id="vibeFoodLabel">160 kg</strong></div>
+                <div class="vibe-stat"><span>🫧 O2 RESERVE:</span> <strong id="vibeO2Label">150 kg</strong></div>
+                <div class="vibe-stat"><span>⚖️ TOTAL MASS:</span> <strong id="vibeTotalLabel">1100 / 1600 kg</strong></div>
+              </div>
             </div>
 
             <div class="engineering-readout">
@@ -158,8 +185,7 @@
         </div>
 
         <div class="lobby-actions">
-          <button class="au-btn au-btn-blue" id="addBotBtn">+ BOT</button>
-          <button class="au-btn au-btn-red" id="removeBotBtn">- BOT</button>
+          <button class="au-btn au-btn-gray" id="btnNasaArchive">NASA 3D ARCHIVE</button>
           <button class="au-btn au-btn-yellow lobby-start-btn" id="startBtn">START MISSION</button>
         </div>
       </div>
@@ -189,6 +215,7 @@
         <div class="gauge-row"><span class="gauge-label">O2</span><div class="gauge-track"><div class="gauge-fill gauge-o2" id="gaugeO2"></div></div></div>
         <div class="gauge-row"><span class="gauge-label">FOOD</span><div class="gauge-track"><div class="gauge-fill gauge-food" id="gaugeFood"></div></div></div>
         <div class="gauge-row"><span class="gauge-label">FUEL</span><div class="gauge-track"><div class="gauge-fill gauge-fuel" id="gaugeFuel"></div></div></div>
+        <div class="gauge-row"><span class="gauge-label">HULL</span><div class="gauge-track"><div class="gauge-fill gauge-hull" id="gaugeHull"></div></div></div>
         <div class="gauge-row"><span class="gauge-label">SCI</span><div class="gauge-track"><div class="gauge-fill gauge-sci" id="gaugeSci"></div></div></div>
         <div class="gauge-row"><span class="gauge-label">MASS</span><div class="gauge-track"><div class="gauge-fill gauge-mass" id="gaugeMass"></div></div></div>
       </div>
@@ -197,9 +224,7 @@
     <div id="actionButtons">
       <button class="action-btn" id="btnUse">USE</button>
       <button class="action-btn" id="btnReport">REPORT</button>
-      <button class="action-btn" id="btnPilot">PILOT 3D</button>
-      <button class="action-btn action-btn-kill" id="btnKill">KILL</button>
-      <button class="action-btn action-btn-sab" id="btnSabotage">SAB</button>
+      <button class="action-btn action-btn-pilot" id="btnPilot">PILOT 3D (P)</button>
     </div>
 
     <!-- ===== MEETING TABLET ===== -->
@@ -230,7 +255,18 @@
     <div id="taskOverlay" class="task-overlay" style="display:none;">
       <div class="task-panel au-panel">
         <button class="task-close" id="taskClose">✕</button>
-        <div class="task-content" id="taskContent"></div>
+        <div class="task-content" id="taskContent">
+          <canvas id="taskCanvas" width="540" height="380" style="display:none; border-radius:12px; border:3px solid #000;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EMERGENCY RESERVE KLAXON ===== -->
+    <div id="emergencyKlaxon" class="emergency-reserve-overlay" style="display:none;">
+      <div class="emergency-klaxon-banner">
+        <span class="klaxon-icon">⚠️</span>
+        <span id="klaxonText">EMERGENCY RESERVE ACTIVE</span>
+        <span id="klaxonCountdown" class="klaxon-timer">60s</span>
       </div>
     </div>
 
@@ -239,6 +275,50 @@
       <div class="ejection-starfield" id="ejectionStarfield"></div>
       <div class="ejection-crewmate" id="ejectionCrewmate"></div>
       <div class="ejection-text" id="ejectionText"></div>
+    </div>
+
+    <!-- ===== NASA 3D & PHOTO ARCHIVE MODAL ===== -->
+    <div id="nasaArchiveModal" class="nasa-archive-overlay" style="display:none;">
+      <div class="nasa-archive-panel au-panel">
+        <div class="nasa-archive-header">
+          <div class="archive-header-title">
+            <span class="archive-kicker">NASA SPACE APPS 2026 ARCHIVE</span>
+            <h2>AUTHENTIC NASA 3D MODELS &amp; SPACE PHOTOGRAPHS</h2>
+          </div>
+          <button class="task-close" id="nasaArchiveClose">✕</button>
+        </div>
+        <div class="nasa-archive-body">
+          <div class="archive-sidebar">
+            <div class="archive-tabs">
+              <button class="archive-tab active" data-filter="all">ALL (14)</button>
+              <button class="archive-tab" data-filter="3d">3D MODELS</button>
+              <button class="archive-tab" data-filter="photo">PHOTOS</button>
+            </div>
+            <div class="archive-list" id="archiveItemList">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+          <div class="archive-viewer">
+            <div class="archive-viewport-container">
+              <div id="archiveViewport3d" class="archive-viewport-3d"></div>
+              <div id="archiveViewportPhoto" class="archive-viewport-photo" style="display:none;">
+                <img id="archivePhotoImg" src="" alt="NASA Space Photo">
+              </div>
+              <div class="archive-controls">
+                <button class="au-btn au-btn-gray archive-ctrl-btn" id="archiveWireframeBtn">WIREFRAME</button>
+                <button class="au-btn au-btn-gray archive-ctrl-btn" id="archiveRotateBtn">AUTO-ROTATE</button>
+                <button class="au-btn au-btn-gray archive-ctrl-btn" id="archiveResetCamBtn">RESET VIEW</button>
+              </div>
+            </div>
+            <div class="archive-details" id="archiveDetails">
+              <h3 id="archiveItemTitle">Title</h3>
+              <div class="archive-meta-row" id="archiveMetaRow"></div>
+              <p id="archiveItemFact" class="archive-fact"></p>
+              <div id="archiveItemMission" class="archive-mission"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ===== DEBRIEF ===== -->
@@ -259,6 +339,7 @@
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
   <script src="https://typpo.github.io/spacekit/build/spacekit.js"></script>
 
   <!-- Game modules (order matters) -->
@@ -272,6 +353,7 @@
   <script src="js/cockpit.js"></script>
   <script src="js/meeting.js"></script>
   <script src="js/tasks.js"></script>
+  <script src="js/nasa-archive.js"></script>
   <script src="js/debrief.js"></script>
   <script src="js/main.js"></script>
 

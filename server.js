@@ -79,9 +79,9 @@ const BOT_NAMES = [
 ];
 
 const LAUNCHERS = Object.freeze({
-  electron: 900,
-  falcon9: 1080,
-  sls: 1280,
+  electron: 1200,
+  falcon9: 1600,
+  sls: 2200,
 });
 
 const SCIENCE_PAYLOADS = Object.freeze({
@@ -119,6 +119,12 @@ app.use(
   }),
 );
 app.use(express.static(path.join(__dirname, "public")));
+app.use("/nasa-models", express.static(path.join(__dirname, "public", "nasa-models")));
+app.use("/nasa-models", express.static(path.join(__dirname, "..", "nasa models")));
+app.use("/assets", express.static(path.join(__dirname, "public", "assets")));
+app.use("/assets", express.static(path.join(__dirname, "..", "assets")));
+app.use("/3D-Airforce-Simulator", express.static(path.join(__dirname, "..", "3D-Airforce-Simulator")));
+app.use("/space-3d", express.static(path.join(__dirname, "..", "space-3d")));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -215,6 +221,9 @@ function createTelemetry(
     aliveCount: 0,
     ghostCount: 0,
     massPenalty: 1,
+    hull: 100,
+    autopilot: true,
+    emergencyMode: null,
   };
 }
 
@@ -622,22 +631,76 @@ function endGame(room, winner, reason) {
   broadcastRooms();
 }
 
+function checkEmergencyState(room) {
+  const telemetry = room.telemetry;
+  const current = now();
+
+  // Identify any zeroed out resource
+  let emergencyType = null;
+  if (telemetry.o2 <= 0) emergencyType = "o2";
+  else if (telemetry.fuel <= 0) emergencyType = "fuel";
+  else if (telemetry.hull <= 0) emergencyType = "hull";
+
+  if (emergencyType) {
+    if (!telemetry.emergencyMode) {
+      // ENTER EMERGENCY RESERVE MODE!
+      telemetry.emergencyMode = {
+        type: emergencyType,
+        startedAt: current,
+        endsAt: current + 60000, // 60 seconds grace period
+        duration: 60,
+      };
+
+      io.to(room.id).emit("emergency:started", {
+        roomId: room.id,
+        type: emergencyType,
+        endsAt: telemetry.emergencyMode.endsAt,
+        duration: 60,
+        serverTime: current,
+      });
+
+      io.to(room.id).emit("game:notif", {
+        message: `⚠️ EMERGENCY RESERVE ENGAGED: 60s TO RESTORE ${emergencyType.toUpperCase()}!`,
+        level: "critical",
+      });
+    } else {
+      // Check if 60s grace countdown has expired
+      if (current >= telemetry.emergencyMode.endsAt) {
+        return { winner: "lost", reason: `emergency-${emergencyType}-depleted` };
+      }
+    }
+  } else {
+    // If the resource was restored above 0, CANCEL EMERGENCY MODE!
+    if (telemetry.emergencyMode) {
+      const recoveredType = telemetry.emergencyMode.type;
+      telemetry.emergencyMode = null;
+
+      io.to(room.id).emit("emergency:cleared", {
+        roomId: room.id,
+        recoveredType: recoveredType,
+        serverTime: current,
+      });
+
+      io.to(room.id).emit("game:notif", {
+        message: `🎉 CLUTCH SAVE! ${recoveredType.toUpperCase()} RESTORED TO SAFE LEVELS!`,
+        level: "success",
+      });
+    }
+  }
+  return null;
+}
+
 function computeWin(room) {
   if (!room.startedAt || room.phase === "ended") return null;
   const alive = [...room.players.values()].filter((player) => player.isAlive);
-  const aliveImposters = alive.filter((player) => player.isImposter);
-  const aliveCrew = alive.filter((player) => !player.isImposter);
-  if (room.telemetry.o2 <= 0 || room.telemetry.fuel <= 0) {
-    return { winner: "imposters", reason: "life-support-failure" };
-  }
-  if (aliveImposters.length === 0) {
-    return { winner: "crew", reason: "imposters-eliminated" };
-  }
-  if (aliveCrew.length === 0) {
-    return { winner: "imposters", reason: "crew-eliminated" };
-  }
-  if (aliveImposters.length >= aliveCrew.length) {
-    return { winner: "imposters", reason: "imposter-parity" };
+
+  // Check emergency reserve expiry
+  const emergencyLoss = checkEmergencyState(room);
+  if (emergencyLoss) return emergencyLoss;
+
+  // Pure co-op: No imposters! Only check if all crew perished or if Mars reached
+  if (alive.length === 0) {
+    return { winner: "lost", reason: "all-crew-lost" };
   }
   if (room.telemetry.marsProgress >= 100) {
     return { winner: "crew", reason: "mars-arrival" };
@@ -654,15 +717,17 @@ function applyTask(room, player, taskId, byBot = false) {
   player.taskCooldowns.set(taskId, current);
   const telemetry = room.telemetry;
   if (taskId === "wires") {
-    telemetry.fuel = clamp(telemetry.fuel + 8, 0, 100);
+    telemetry.fuel = clamp(telemetry.fuel + 15, 0, 100);
   } else if (taskId === "o2_filter") {
-    telemetry.o2 = clamp(telemetry.o2 + 12, 0, 100);
+    telemetry.o2 = clamp(telemetry.o2 + 20, 0, 100);
   } else if (taskId === "nav") {
-    telemetry.marsProgress = clamp(telemetry.marsProgress + 3, 0, 100);
+    telemetry.marsProgress = clamp(telemetry.marsProgress + 5, 0, 100);
+    telemetry.autopilot = true;
   } else if (taskId === "cargo") {
     telemetry.payloadMass = Math.max(0, telemetry.payloadMass - 15);
+    telemetry.hull = clamp(telemetry.hull + 20, 0, 100);
   } else if (taskId === "science") {
-    telemetry.science += 25;
+    telemetry.science += 30;
   }
   room.taskState.progress = Math.min(100, room.taskState.progress + 20);
   room.taskState.completions += 1;
@@ -762,10 +827,48 @@ function telemetryTick(room) {
       : now() < room.moon.progressDelayUntil
         ? 0.15
         : 0.35;
-  telemetry.o2 = clamp(telemetry.o2 - 0.14 * aliveCount, 0, 100);
-  telemetry.food = clamp(telemetry.food - 0.12 * aliveCount, 0, 100);
-  telemetry.fuel = clamp(telemetry.fuel - 0.55 * penalty, 0, 100);
+  const o2Drain = 0.015 * aliveCount;
+  const foodDrain = 0.015 * aliveCount;
+  const fuelDrain = 0.08 * penalty;
+
+  telemetry.o2 = clamp(telemetry.o2 - o2Drain, 0, 100);
+  telemetry.food = clamp(telemetry.food - foodDrain, 0, 100);
+  telemetry.fuel = clamp(telemetry.fuel - fuelDrain, 0, 100);
   telemetry.starving = telemetry.food <= 0;
+
+  // Progressive Hull Wear if unmaintained or overloaded
+  if (telemetry.overloaded) {
+    telemetry.hull = clamp(telemetry.hull - 0.05 * penalty, 0, 100);
+  }
+
+  // Asteroid Field Encounter cycle: every ~75-85 seconds
+  if (!room.nextAsteroidWaveAt) {
+    room.nextAsteroidWaveAt = now() + 75000;
+  }
+  if (now() >= room.nextAsteroidWaveAt && telemetry.autopilot && room.moon.state === "orbit") {
+    telemetry.autopilot = false;
+    room.nextAsteroidWaveAt = now() + 85000;
+    io.to(room.id).emit("cockpit:asteroid:alert", {
+      roomId: room.id,
+      serverTime: now(),
+    });
+    io.to(room.id).emit("game:notif", {
+      message: "⚠️ ASTEROID FIELD DETECTED! AUTOPILOT OFFLINE — PILOT TO COCKPIT (PRESS P)!",
+      level: "critical",
+    });
+  }
+
+  // If autopilot is disengaged and no one is piloting, asteroids damage hull every 4s
+  if (!telemetry.autopilot && !room.pilotSeat.occupantId) {
+    if (!room.lastAsteroidDamageAt || now() - room.lastAsteroidDamageAt > 4000) {
+      room.lastAsteroidDamageAt = now();
+      telemetry.hull = Math.max(0, telemetry.hull - 5);
+      io.to(room.id).emit("game:notif", {
+        message: "💥 UNPILOTED SHIP STRUCK BY ASTEROIDS! -5% HULL!",
+        level: "critical",
+      });
+    }
+  }
   let progressGain = (1.4 / penalty) * moonFactor;
   const thrust = room.pilotThrust;
   const pilotId = room.pilotSeat.occupantId;
@@ -1539,11 +1642,11 @@ function connectSocket(socket) {
       sendError(socket, "invalid_phase", "The game has already started.");
       return;
     }
-    if (data?.fillBots !== false) {
+    if (data?.fillBots === true) {
       while (room.players.size < MAX_SLOTS) addBotToRoom(room);
     }
-    if (room.players.size < 2) {
-      sendError(socket, "not_enough_players", "At least two players are required.");
+    if (room.players.size < 1) {
+      sendError(socket, "not_enough_players", "At least one player is required.");
       return;
     }
     const startedAt = now();
@@ -1568,6 +1671,7 @@ function connectSocket(socket) {
       player.ghost = false;
       player.mass = CREW_MASS;
       player.isImposter = false;
+      player.role = "crewmate";
       player.isPilot = false;
       player.isHost = player.id === room.hostId;
       player.x = spawn.x;
@@ -1594,15 +1698,15 @@ function connectSocket(socket) {
     room.telemetry.marsProgress = 0;
     room.telemetry.starving = room.telemetry.food <= 0;
     recomputeTelemetry(room);
-    const imposter = pick([...room.players.values()]);
-    imposter.isImposter = true;
-    room.imposterIds = [imposter.id];
+    // Pure co-op: NO IMPOSTOR! Everyone is a Crewmate / Astronaut
+    room.imposterIds = [];
     for (const player of room.players.values()) {
       if (!player.isBot) {
         io.to(player.id).emit("role:assigned", {
           roomId: room.id,
-          isImposter: player.isImposter,
-          imposterIds: player.isImposter ? [...room.imposterIds] : [],
+          isImposter: false,
+          role: "crewmate",
+          imposterIds: [],
           serverTime: now(),
         });
       }
@@ -1860,6 +1964,33 @@ function connectSocket(socket) {
       serverTime: now(),
     });
     roomBroadcast(room);
+  });
+
+  handle("cockpit:obstacle:hit", () => {
+    const room = rooms.get(socket.data.roomId);
+    if (!room || room.phase !== "playing") return;
+    room.telemetry.hull = Math.max(0, room.telemetry.hull - 8);
+    recomputeTelemetry(room);
+    emitTelemetry(room);
+    const win = computeWin(room);
+    if (win) endGame(room, win.winner, win.reason);
+  });
+
+  handle("cockpit:obstacle:cleared", () => {
+    const room = rooms.get(socket.data.roomId);
+    if (!room || room.phase !== "playing") return;
+    room.telemetry.science += 10;
+    recomputeTelemetry(room);
+    emitTelemetry(room);
+  });
+
+  handle("cockpit:wave:cleared", () => {
+    const room = rooms.get(socket.data.roomId);
+    if (!room || room.phase !== "playing") return;
+    room.telemetry.autopilot = true;
+    room.telemetry.marsProgress = Math.min(100, room.telemetry.marsProgress + 10);
+    recomputeTelemetry(room);
+    emitTelemetry(room);
   });
 
   handle("moon:land", () => {

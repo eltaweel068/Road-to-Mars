@@ -3,9 +3,9 @@ window.RTM.Lobby = (function () {
   'use strict';
 
   var ROCKETS = [
-    { id: 'electron', name: 'ELECTRON', maxMass: 900, thrustKN: 224, exhaust: 3200, twrBase: 1.62, tag: 'High Agility' },
-    { id: 'falcon9', name: 'FALCON 9', maxMass: 1080, thrustKN: 7607, exhaust: 3400, twrBase: 1.46, tag: 'Balanced' },
-    { id: 'sls', name: 'SLS BLOCK 1B', maxMass: 1280, thrustKN: 39100, exhaust: 3600, twrBase: 1.32, tag: 'Heavy Lift' }
+    { id: 'electron', name: 'ELECTRON', maxMass: 1200, thrustKN: 224, exhaust: 3200, twrBase: 1.62, tag: 'High Agility' },
+    { id: 'falcon9', name: 'FALCON 9', maxMass: 1600, thrustKN: 7607, exhaust: 3400, twrBase: 1.46, tag: 'Balanced Heavy Lift' },
+    { id: 'sls', name: 'SLS BLOCK 1B', maxMass: 2200, thrustKN: 39100, exhaust: 3600, twrBase: 1.32, tag: 'Super Heavy Lift' }
   ];
   var PAYLOADS = [
     { id: 'light', name: 'LIGHT SPECTROMETER', mass: 70, science: 90 },
@@ -13,14 +13,9 @@ window.RTM.Lobby = (function () {
     { id: 'heavy', name: 'NUCLEAR DEEP DRILL', mass: 340, science: 380 }
   ];
   var SPECIALTIES = {
-    pilot: { label: 'PILOT & NAVIGATOR', short: 'PILOT', hat: '✈' },
-    o2: { label: 'O2 & LIFE SUPPORT', short: 'O2', hat: '◌' },
-    chef: { label: 'ROMY CHEESE QUARTERMASTER', short: 'CHEF', hat: '♨' },
-    propulsion: { label: 'FLIGHT MASS & PROPULSION', short: 'PROPULSION', hat: '▲' },
-    scientist: { label: 'CHIEF SCIENTIST', short: 'SCIENTIST', hat: '✦' },
-    electrical: { label: 'ELECTRICAL ENGINEER', short: 'ELECTRICAL', hat: 'ϟ' }
+    pilot: { label: 'ASTRONAUT', short: 'CREW', hat: '✈' }
   };
-  var ROCKET_MASS = { electron: 900, falcon9: 1080, sls: 1280 };
+  var ROCKET_MASS = { electron: 1200, falcon9: 1600, sls: 2200 };
   var PAYLOAD_MASS = { light: 70, medium: 190, heavy: 340 };
   var COLORS = ['#c51111', '#132ed1', '#117f2d', '#ed54ba', '#ef7d0e', '#f5f557'];
   var DRY_MASS = 270;
@@ -282,38 +277,194 @@ window.RTM.Lobby = (function () {
     return SPECIALTIES[id] || { label: 'UNASSIGNED', short: 'CREW', hat: '·' };
   }
 
+  var lobbyAnimTick = 0;
+  var lobbyLoopId = null;
+
+  function drawLobbySlotBean(canvas, player, animTick) {
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!player) {
+      ctx.globalAlpha = 0.3;
+      if (window.RTM && window.RTM.Renderer && window.RTM.Renderer.drawCrewmate) {
+        window.RTM.Renderer.drawCrewmate(ctx, 50, 70, '#555566', {
+          direction: 'right',
+          moving: false,
+          hat: null,
+          dead: false,
+          ghost: false
+        });
+      }
+      ctx.globalAlpha = 1.0;
+      return;
+    }
+
+    var bounceY = Math.sin((animTick || 0) * 0.08) * 3;
+    if (window.RTM && window.RTM.Renderer && window.RTM.Renderer.drawCrewmate) {
+      window.RTM.Renderer.drawCrewmate(ctx, 50, 70 + bounceY, player.color || '#c51111', {
+        direction: 'right',
+        moving: true,
+        animFrame: Math.floor((animTick || 0) * 0.1),
+        hat: player.specialty || player.hat || 'pilot',
+        dead: false,
+        ghost: false
+      });
+    }
+  }
+
+  function wireQuickJoinBar() {
+    var nameInput = document.getElementById('quickPlayerName');
+    var createBtn = document.getElementById('quickCreateRoomBtn');
+    var codeInput = document.getElementById('quickRoomCodeInput');
+    var joinBtn = document.getElementById('quickJoinRoomBtn');
+
+    var storedName = '';
+    try { storedName = localStorage.getItem('rtm-player-name') || ''; } catch (_) {}
+    if (!storedName) {
+      storedName = 'Astronaut-' + Math.floor(Math.random() * 900 + 100);
+      try { localStorage.setItem('rtm-player-name', storedName); } catch (_) {}
+    }
+
+    if (nameInput) {
+      nameInput.value = storedName;
+      nameInput.addEventListener('input', function () {
+        var val = nameInput.value.trim();
+        try { localStorage.setItem('rtm-player-name', val); } catch (_) {}
+        var state = RTM.Net.getState();
+        var localPlayer = state.players[RTM.Net.playerId];
+        var col = (localPlayer && localPlayer.color) || COLORS[0];
+        RTM.Net.emit('player:register', { name: val, color: col });
+      });
+    }
+
+    if (createBtn) {
+      createBtn.addEventListener('click', function () {
+        var name = (nameInput ? nameInput.value.trim() : '') || 'Captain';
+        var state = RTM.Net.getState();
+        var localPlayer = state.players[RTM.Net.playerId];
+        var col = (localPlayer && localPlayer.color) || COLORS[0];
+        RTM.Net.emit('player:register', { name: name, color: col });
+        RTM.Net.emit('room:create', {});
+      });
+    }
+
+    if (joinBtn && codeInput) {
+      joinBtn.addEventListener('click', function () {
+        var code = codeInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (code.length >= 4) {
+          var name = (nameInput ? nameInput.value.trim() : '') || 'Explorer';
+          var state = RTM.Net.getState();
+          var localPlayer = state.players[RTM.Net.playerId];
+          var col = (localPlayer && localPlayer.color) || COLORS[0];
+          RTM.Net.emit('player:register', { name: name, color: col });
+          RTM.Net.emit('room:join', { roomId: code });
+        } else {
+          alert('Please enter a valid 4 to 6 character Room Code!');
+        }
+      });
+    }
+  }
+
+  function updateVibeMeter(telemetry) {
+    var fill = document.getElementById('vibeFill');
+    var badge = document.getElementById('vibeStatusBadge');
+    var totalLabel = document.getElementById('vibeTotalLabel');
+    var foodLabel = document.getElementById('vibeFoodLabel');
+    var o2Label = document.getElementById('vibeO2Label');
+    if (!fill || !badge) return;
+
+    telemetry = telemetry || (RTM.Net ? RTM.Net.getState().telemetry : {}) || {};
+    var maxMass = telemetry.maxMass || 1600;
+    var totalMass = telemetry.totalMass || 1100;
+    var ratio = totalMass / maxMass;
+    var percent = Math.min(100, Math.round(ratio * 100));
+    fill.style.width = percent + '%';
+
+    if (totalLabel) totalLabel.textContent = Math.round(totalMass) + ' / ' + Math.round(maxMass) + ' kg';
+    if (foodLabel) foodLabel.textContent = Math.round(telemetry.foodMass != null ? telemetry.foodMass : currentFood()) + ' kg';
+    if (o2Label) o2Label.textContent = Math.round(telemetry.o2Mass != null ? telemetry.o2Mass : currentO2()) + ' kg';
+
+    if (ratio > 1.0) {
+      badge.className = 'vibe-badge vibe-overweight';
+      badge.textContent = '🔥 DANGEROUS OVERWEIGHT (+50% Fuel Burn)';
+      fill.style.background = '#c51111';
+    } else if (ratio > 0.85) {
+      badge.className = 'vibe-badge vibe-heavy';
+      badge.textContent = '⚡ HEAVY CARGO (Fast Mars Velocity)';
+      fill.style.background = '#ef7d0d';
+    } else {
+      badge.className = 'vibe-badge vibe-easy';
+      badge.textContent = '✨ SMOOTH CRUISE (High Fuel Efficiency)';
+      fill.style.background = '#117f2d';
+    }
+  }
+
   function fillSlot(player, isLocal) {
     var slot = document.createElement('div');
     slot.className = 'player-slot' + (player ? '' : ' empty') + (isLocal ? ' you' : '');
-    if (!player) {
-      var empty = document.createElement('span');
-      empty.className = 'slot-label';
-      empty.textContent = 'EMPTY';
-      slot.appendChild(empty);
-      return slot;
-    }
-    var meta = specialtyMeta(player.specialty);
-    var swatch = document.createElement('span');
-    swatch.className = 'slot-color';
-    swatch.style.background = player.color || '#888';
-    swatch.textContent = meta.hat;
+
+    var canvas = document.createElement('canvas');
+    canvas.className = 'slot-crewmate-canvas';
+    canvas.width = 100;
+    canvas.height = 110;
+    slot.appendChild(canvas);
+    drawLobbySlotBean(canvas, player, lobbyAnimTick);
+
     var name = document.createElement('span');
     name.className = 'slot-name';
-    name.textContent = player.name || 'Crew';
-    var specialty = document.createElement('span');
-    specialty.className = 'slot-specialty';
-    specialty.textContent = meta.short;
-    var tags = [];
-    if (isLocal) tags.push('YOU');
-    if (player.isHost) tags.push('HOST');
-    if (player.isBot) tags.push('BOT');
-    var tag = document.createElement('span');
-    tag.className = 'slot-label';
-    tag.textContent = tags.join(' · ');
-    slot.appendChild(swatch);
+    name.textContent = player ? (player.name || 'Crew') : 'EMPTY';
     slot.appendChild(name);
-    slot.appendChild(tag);
-    slot.appendChild(specialty);
+
+    if (player) {
+      var meta = specialtyMeta(player.specialty);
+      var specialty = document.createElement('span');
+      specialty.className = 'slot-specialty';
+      specialty.textContent = meta.short;
+      slot.appendChild(specialty);
+
+      var tags = [];
+      if (isLocal) tags.push('YOU');
+      if (player.isHost) tags.push('HOST');
+      if (player.isBot) tags.push('BOT');
+      if (tags.length > 0) {
+        var tag = document.createElement('span');
+        tag.className = 'slot-label';
+        tag.textContent = tags.join(' · ');
+        slot.appendChild(tag);
+      }
+
+      if (isLocal) {
+        var hatPicker = document.createElement('div');
+        hatPicker.className = 'slot-hat-picker';
+        var hats = [
+          { id: 'pilot', icon: '👨‍✈️', title: 'Pilot' },
+          { id: 'chef', icon: '🧀', title: 'Cheese Master' },
+          { id: 'o2', icon: '🌱', title: 'O2 Green' },
+          { id: 'scientist', icon: '🥽', title: 'Scientist' },
+          { id: 'hard_hat', icon: '⛑️', title: 'Engineer' }
+        ];
+        hats.forEach(function (h) {
+          var btn = document.createElement('button');
+          btn.className = 'hat-btn';
+          btn.type = 'button';
+          btn.setAttribute('data-hat', h.id);
+          btn.title = h.title;
+          btn.textContent = h.icon;
+          btn.onclick = function (e) {
+            e.stopPropagation();
+            chooseSpecialty(h.id);
+          };
+          hatPicker.appendChild(btn);
+        });
+        slot.appendChild(hatPicker);
+      }
+    } else {
+      var emptyLabel = document.createElement('span');
+      emptyLabel.className = 'slot-label';
+      emptyLabel.textContent = 'WAITING FOR CREW';
+      slot.appendChild(emptyLabel);
+    }
     return slot;
   }
 
@@ -360,14 +511,13 @@ window.RTM.Lobby = (function () {
     if (els.roomCode) els.roomCode.textContent = room ? (room.code || room.id || '????') : '????';
     syncControlsFromRoom(room, gameState.telemetry);
     renderPlayers();
-    renderSpecialtyPicker();
     renderEngineering();
+    updateVibeMeter(gameState.telemetry);
     var host = RTM.Net.isHost();
-    if (els.addBotBtn) els.addBotBtn.disabled = !host;
-    if (els.removeBotBtn) els.removeBotBtn.disabled = !host;
     if (els.startBtn) {
       els.startBtn.disabled = !host;
-      els.startBtn.textContent = host ? 'START MISSION' : 'WAITING FOR HOST';
+      els.startBtn.className = host ? 'au-btn au-btn-green au-btn-pulse lobby-start-btn' : 'au-btn au-btn-gray lobby-start-btn';
+      els.startBtn.innerHTML = host ? '🚀 LAUNCH EXPEDITION' : '⏳ WAITING FOR CAPTAIN';
     }
   }
 
@@ -433,7 +583,7 @@ window.RTM.Lobby = (function () {
       if (RTM.HUD) RTM.HUD.showNotification('Only the host can start the mission.', 'error');
       return;
     }
-    RTM.Net.emit('game:start', { fillBots: true });
+    RTM.Net.emit('game:start', { fillBots: false });
   }
 
   function chooseSpecialty(specialty) {
@@ -446,6 +596,29 @@ window.RTM.Lobby = (function () {
 
   function init() {
     cache();
+    wireQuickJoinBar();
+
+    if (!lobbyLoopId) {
+      function lobbyAnimLoop() {
+        lobbyAnimTick++;
+        if (els.playerGrid) {
+          var canvases = els.playerGrid.querySelectorAll('.slot-crewmate-canvas');
+          var gameState = RTM.Net ? RTM.Net.getState() : {};
+          var players = gameState.players || {};
+          var list = Object.keys(players).map(function (id) { return players[id]; });
+          list.sort(function (a, b) {
+            if (a.id === RTM.Net.playerId) return -1;
+            if (b.id === RTM.Net.playerId) return 1;
+            return 0;
+          });
+          for (var c = 0; c < canvases.length; c++) {
+            drawLobbySlotBean(canvases[c], list[c] || null, lobbyAnimTick);
+          }
+        }
+        lobbyLoopId = requestAnimationFrame(lobbyAnimLoop);
+      }
+      lobbyLoopId = requestAnimationFrame(lobbyAnimLoop);
+    }
     if (els.rocketTabs) {
       els.rocketTabs.addEventListener('click', function (event) {
         var button = event.target.closest('button[data-rocket]');
@@ -468,21 +641,12 @@ window.RTM.Lobby = (function () {
         scheduleConfigure();
       });
     }
-    if (els.specialtyPicker) {
-      els.specialtyPicker.addEventListener('click', function (event) {
-        var button = event.target.closest('button[data-specialty]');
-        if (!button) return;
-        chooseSpecialty(button.getAttribute('data-specialty'));
-      });
-    }
     [els.foodSlider, els.o2Slider, els.fuelSlider].forEach(function (slider) {
       if (!slider) return;
       slider.addEventListener('input', function () {
         scheduleConfigure();
       });
     });
-    if (els.addBotBtn) els.addBotBtn.addEventListener('click', addBot);
-    if (els.removeBotBtn) els.removeBotBtn.addEventListener('click', removeBot);
     if (els.startBtn) els.startBtn.addEventListener('click', startGame);
 
     RTM.Net.on('server:ready', function () {

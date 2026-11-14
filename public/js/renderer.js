@@ -1162,10 +1162,153 @@
     if (o2 < 35) drawHypoxiaVignette(ctx, o2);
     if (starving) drawStarvationVignette(ctx);
 
+    // Waypoint Guide Arrows
+    drawWaypointGuideArrows(ctx, localP, state);
+
     // Minimap Overlay
     if (minimapOpen) {
       drawMinimap(ctx, state, localP);
     }
+  }
+
+  // ── Active Objectives & Waypoint Guide Arrows ─────────────
+  function getActiveObjectives(gameState) {
+    var objectives = [];
+    var telemetry = (gameState && (gameState.telemetry || gameState.resources)) || {};
+
+    // 1. Oxygen Emergency or Low O2 (< 35%)
+    if (telemetry.o2 < 35 || (telemetry.emergencyMode && telemetry.emergencyMode.type === 'o2')) {
+      objectives.push({
+        id: 'o2_emergency',
+        x: 2250, y: 450, // Greenhouse / O2 Station
+        label: '🌱 WATER PLANTS IN GREENHOUSE (O2 LOW!)',
+        color: '#38fedc',
+        priority: 10
+      });
+    }
+
+    // 2. Asteroids / Autopilot Disengaged
+    if (telemetry.autopilot === false) {
+      objectives.push({
+        id: 'pilot_cockpit',
+        x: 2750, y: 950, // Navigation Cockpit Chair
+        label: '🕹️ TAKE PILOT CONTROLS (ASTEROIDS AHEAD!)',
+        color: '#f5f557',
+        priority: 9
+      });
+    }
+
+    // 3. Fuel or Electrical Emergency
+    if (telemetry.fuel < 30 || (telemetry.emergencyMode && telemetry.emergencyMode.type === 'fuel')) {
+      objectives.push({
+        id: 'electrical_wires',
+        x: 850, y: 1350, // Electrical
+        label: '⚡ FIX WIRES IN ELECTRICAL (FUEL CRITICAL!)',
+        color: '#ef7d0d',
+        priority: 8
+      });
+    }
+
+    // 4. Hull Breach (< 40% Hull)
+    if (telemetry.hull < 40 || (telemetry.emergencyMode && telemetry.emergencyMode.type === 'hull')) {
+      objectives.push({
+        id: 'hull_repair',
+        x: 1600, y: 1550, // Storage & Hull Welding
+        label: '🛠️ WELD HULL BREACH IN STORAGE',
+        color: '#c51111',
+        priority: 9
+      });
+    }
+
+    // 5. Moon Landed (Romy Cheese EVA)
+    if (currentScene === 'moon' && gameState.moon && gameState.moon.state === 'landed') {
+      objectives.push({
+        id: 'moon_cheese',
+        x: 1650, y: 550,
+        label: '🌕 COLLECT ROMY CHEESE (+18% FOOD)!',
+        color: '#f5f557',
+        priority: 7
+      });
+    }
+
+    return objectives.sort(function (a, b) { return b.priority - a.priority; });
+  }
+
+  function drawWaypointGuideArrows(ctx, localPlayer, gameState) {
+    if (!localPlayer || currentScene !== 'ship') return;
+    var objectives = getActiveObjectives(gameState);
+    if (!objectives || objectives.length === 0) return;
+
+    var screenW = canvasW;
+    var screenH = canvasH;
+    var margin = 60;
+
+    objectives.slice(0, 2).forEach(function (obj) {
+      var targetScreen = worldToScreen(obj.x, obj.y);
+
+      if (targetScreen.x > 100 && targetScreen.x < screenW - 100 &&
+          targetScreen.y > 100 && targetScreen.y < screenH - 100) {
+        return;
+      }
+
+      var centerX = screenW / 2;
+      var centerY = screenH / 2;
+      var dx = targetScreen.x - centerX;
+      var dy = targetScreen.y - centerY;
+      var angle = Math.atan2(dy, dx);
+
+      var edgeX = centerX + Math.cos(angle) * (centerX - margin);
+      var edgeY = centerY + Math.sin(angle) * (centerY - margin);
+      edgeX = Math.max(margin, Math.min(screenW - margin, edgeX));
+      edgeY = Math.max(margin, Math.min(screenH - margin, edgeY));
+
+      var bounce = Math.sin(Date.now() * 0.008) * 8;
+      edgeX += Math.cos(angle) * bounce;
+      edgeY += Math.sin(angle) * bounce;
+
+      ctx.save();
+      ctx.translate(edgeX, edgeY);
+      ctx.rotate(angle);
+
+      ctx.fillStyle = obj.color;
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(18, 0);
+      ctx.lineTo(-12, -14);
+      ctx.lineTo(-6, -6);
+      ctx.lineTo(-24, -6);
+      ctx.lineTo(-24, 6);
+      ctx.lineTo(-6, 6);
+      ctx.lineTo(-12, 14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.restore();
+
+      ctx.save();
+      ctx.font = 'bold 13px "Courier New", monospace';
+      var textWidth = ctx.measureText(obj.label).width;
+      var badgeX = Math.max(10, Math.min(screenW - textWidth - 30, edgeX - textWidth / 2));
+      var badgeY = edgeY > screenH / 2 ? edgeY - 26 : edgeY + 26;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.strokeStyle = obj.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(badgeX - 4, badgeY - 14, textWidth + 16, 22, 6);
+      } else {
+        ctx.rect(badgeX - 4, badgeY - 14, textWidth + 16, 22);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = obj.color;
+      ctx.fillText(obj.label, badgeX + 4, badgeY + 2);
+      ctx.restore();
+    });
   }
 
   function init() {

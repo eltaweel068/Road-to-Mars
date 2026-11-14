@@ -262,7 +262,6 @@ window.RTM.Meeting = (function () {
   function showEjection(results) {
     if (!results || !results.ejectedPlayer) return;
     var player = results.ejectedPlayer;
-    var wasImpostor = player.isImposter === true || player.isImpostor === true || player.role === 'impostor';
     if (els.ejectionCrewmate) {
       els.ejectionCrewmate.style.background = player.color || '#c51111';
       els.ejectionCrewmate.style.animation = 'none';
@@ -272,10 +271,10 @@ window.RTM.Meeting = (function () {
     if (els.ejectionText) {
       els.ejectionText.innerHTML = '';
       var name = document.createElement('span');
-      name.textContent = player.name || 'CREW';
+      name.textContent = player.name || 'CREWMATE';
       var verdict = document.createElement('span');
-      verdict.className = wasImpostor ? 'was-impostor' : 'was-not-impostor';
-      verdict.textContent = wasImpostor ? ' WAS THE IMPOSTOR' : ' WAS NOT THE IMPOSTOR';
+      verdict.className = 'was-not-impostor';
+      verdict.textContent = ' WAS EJECTED INTO DEEP SPACE (-80 KG MASS)';
       els.ejectionText.appendChild(name);
       els.ejectionText.appendChild(verdict);
     }

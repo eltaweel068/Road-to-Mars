@@ -48,7 +48,7 @@ window.RTM.Main = (function () {
 
   function showRoleReveal(role) {
     if (!els.roleReveal) return;
-    currentRole = role;
+    currentRole = 'crewmate';
     revealActive = true;
     gameplayHudVisible(false);
     if (RTM.Ship) RTM.Ship.setActive(false);
@@ -57,10 +57,10 @@ window.RTM.Main = (function () {
     if (RTM.Tasks) RTM.Tasks.close();
     setDisplay(els.lobby, false);
     setDisplay(els.roleReveal, true);
-    if (els.shhh) els.shhh.textContent = 'SHHHHH!';
+    if (els.shhh) els.shhh.textContent = '🚀 ROAD TO MARS';
     if (els.roleText) {
-      els.roleText.textContent = role === 'impostor' ? 'IMPOSTOR' : 'CREWMATE';
-      els.roleText.className = 'role-text ' + (role === 'impostor' ? 'impostor' : 'crewmate');
+      els.roleText.textContent = 'LAUNCHING EXPEDITION TO MARS!';
+      els.roleText.className = 'role-text crewmate';
       els.roleText.style.animation = 'none';
       void els.roleText.offsetWidth;
       els.roleText.style.animation = '';
@@ -70,7 +70,7 @@ window.RTM.Main = (function () {
       revealTimer = null;
       hideRoleReveal();
       refreshGameplay();
-    }, 3000);
+    }, 2000);
   }
 
   function refreshGameplay() {
@@ -140,8 +140,7 @@ window.RTM.Main = (function () {
   }
 
   function onRoleAssigned(data) {
-    var role = data && (data.isImposter === true || data.role === 'impostor') ? 'impostor' : 'crewmate';
-    showRoleReveal(role);
+    showRoleReveal('crewmate');
   }
 
   function init() {
@@ -158,6 +157,7 @@ window.RTM.Main = (function () {
     if (RTM.Debrief) RTM.Debrief.init();
     if (RTM.Lobby) RTM.Lobby.init();
     if (RTM.Audio) RTM.Audio.init();
+    if (RTM.NasaArchive) RTM.NasaArchive.init();
 
     if (RTM.Net) {
       RTM.Net.on('role:assigned', onRoleAssigned);

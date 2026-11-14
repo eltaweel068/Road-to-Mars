@@ -151,21 +151,6 @@ window.RTM.Ship = (function () {
     near.nearEmergencyButton = RTM.Renderer.isNearEmergencyButton(localX, localY);
     var lastEnd = gameState.room && gameState.room.lastMeetingEndAt ? gameState.room.lastMeetingEndAt : lastMeetingEndAt;
     near.meetingCooldown = Date.now() - lastEnd < 15000;
-    if (RTM.Net.isImpostor()) {
-      var closest = KILL_RANGE;
-      var ids = Object.keys(gameState.players);
-      for (var i = 0; i < ids.length; i++) {
-        var other = gameState.players[ids[i]];
-        if (other.id === player.id || !other.alive || other.role === 'impostor') continue;
-        if (other.scene && other.scene !== 'ship') continue;
-        var distance = Math.hypot(localX - other.x, localY - other.y);
-        if (distance <= closest) {
-          closest = distance;
-          killTarget = other;
-          near.nearCrewmate = true;
-        }
-      }
-    }
     var canCommand = RTM.Net.isPilot() || RTM.Net.isHost();
     if (canCommand && gameState.moon && gameState.moon.state === 'orbit') {
       near.canLandMoon = gameState.telemetry.fuel >= 10 && gameState.telemetry.o2 >= 12;
@@ -279,9 +264,14 @@ window.RTM.Ship = (function () {
       callMeeting();
       return;
     }
-    if (key === 'q') {
+    if (key === 'p') {
       event.preventDefault();
-      kill();
+      if (RTM.HUD && RTM.HUD.claimAndEnterPilot) {
+        RTM.HUD.claimAndEnterPilot();
+      } else if (RTM.Cockpit && RTM.Cockpit.show) {
+        if (RTM.Net) RTM.Net.emit('pilot:seat:claim');
+        RTM.Cockpit.show();
+      }
       return;
     }
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].indexOf(key) >= 0) {

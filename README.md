@@ -20,18 +20,10 @@
 4. [The Lunar Detour and Trade-off Mechanics](#the-lunar-detour-and-trade-off-mechanics)
 5. [The 10 Ship Compartments](#the-10-ship-compartments)
 6. [Interactive Controls and Keybindings](#interactive-controls-and-keybindings)
-7. [System Requirements and Local Installation](#system-requirements-and-local-installation)
-   - [Mandatory Requirement: Node.js (Must Have)](#mandatory-requirement-nodejs-must-have)
-   - [How to Download and Install Node.js](#how-to-download-and-install-nodejs)
-   - [Hardware and Operating System Prerequisites](#hardware-and-operating-system-prerequisites)
-   - [Step-by-Step Installation](#step-by-step-installation)
-8. [How to Boot the Game](#how-to-boot-the-game)
-   - [Server Boot Options](#server-boot-options)
-   - [Launching Clients (Solo Bots vs LAN Multiplayer)](#launching-clients-solo-bots-vs-lan-multiplayer)
-   - [Troubleshooting Common Boot Issues](#troubleshooting-common-boot-issues)
-9. [Module and File Structure](#module-and-file-structure)
-10. [Telemetry, Networking and Protocols](#telemetry-networking-and-protocols)
-11. [Credits and References](#credits-and-references)
+7. [Quick Start & System Requirements (Must Have Node.js)](#quick-start--system-requirements-must-have-nodejs)
+8. [Module and File Structure](#module-and-file-structure)
+9. [Telemetry, Networking and Protocols](#telemetry-networking-and-protocols)
+10. [Credits and References](#credits-and-references)
 
 ---
 
@@ -447,13 +439,30 @@ To test multiplayer interactions, synchronization, and the 3D pilot seat lock on
 
 ```
 Road to Mars/
+├── NASA_ASSETS_CATALOG.md    # Complete catalog of all NASA 3D models and photos
 ├── package.json              # Project dependencies (Express 5, Socket.io 4.8, CORS)
 ├── server.js                 # Authoritative Node.js simulation & WebSocket server
 ├── public/
 │   ├── index.html            # Main HTML5 entry point & canvas mounts
 │   ├── favicon.png           # Crewmate astronaut icon
+│   ├── nasa-models/          # Authentic NASA 3D STL/GLB models & high-res space photos
+│   │   ├── Asteroid 101955 Bennu.stl
+│   │   ├── Asteroid 4179 Toutatis.stl
+│   │   ├── Asteroid 1620 Geographos.stl
+│   │   ├── Asteroid 216 Kleopatra.stl
+│   │   ├── Asteroid 25143 Itokawa.stl
+│   │   ├── Block Island.stl
+│   │   ├── Apollo 14 - Landing Site.stl
+│   │   ├── Curiosity Landing Site.stl
+│   │   ├── Astronaut.glb
+│   │   ├── Extravehicular Mobility Unit.glb
+│   │   ├── Advanced Crew Escape Suit.glb
+│   │   ├── Z2 Spacesuit.glb
+│   │   ├── Apollo 11 - View of the Moon.jpg
+│   │   └── Earth (B).jpg
+│   ├── assets/               # Bundled Kenney 3D GLTF models, planet textures, sprites & audio
 │   ├── css/
-│   │   └── style.css         # Retro sci-fi HUD, minimap & meeting UI styles
+│   │   └── style.css         # Retro sci-fi HUD, minimap, meeting & archive viewer UI styles
 │   ├── js/
 │   │   ├── main.js           # Client orchestration & lifecycle coordinator
 │   │   ├── net.js            # Socket.io networking, client lerping & packet dispatcher
@@ -462,12 +471,12 @@ Road to Mars/
 │   │   ├── hud.js            # HUD status bars, action buttons & pilot triggers
 │   │   ├── ship.js           # 2D player state, proximity interaction & collision logic
 │   │   ├── moon.js           # Lunar detour surface exploration & cheese harvesting
-│   │   ├── tasks.js          # Interactive engineering mini-game dialogs
+│   │   ├── tasks.js          # Interactive engineering mini-game canvas dialogs
 │   │   ├── meeting.js        # Emergency meeting voting UI & airlock ejection cutscene
 │   │   ├── lobby.js          # Room creation, player color picker & lobby screen
 │   │   ├── audio.js          # Web Audio API procedural sound synthesizer
+│   │   ├── nasa-archive.js   # Interactive 3D model & photograph archive viewer
 │   │   └── debrief.js        # Mission outcome summary & NASA scoring report
-└── assets/                   # Symlinked Kenney 3D models, textures, and sprites
 ```
 
 ---

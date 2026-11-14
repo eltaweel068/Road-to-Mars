@@ -12,7 +12,8 @@ window.RTM.Net = (function () {
     'pilot:seat:locked', 'pilot:seat:unlocked', 'pilot:seat:updated',
     'pilot:thrust', 'moon:state', 'moon:nodes', 'moon:node-collected',
     'meeting:started', 'meeting:voted', 'meeting:ended', 'cargo:jettisoned',
-    'room:message', 'state:snapshot', 'player:specialty'
+    'room:message', 'state:snapshot', 'player:specialty',
+    'emergency:started', 'emergency:cleared', 'cockpit:asteroid:alert'
   ];
 
   var EVENT_ALIASES = {
@@ -26,7 +27,7 @@ window.RTM.Net = (function () {
 
   var CREW_COLORS = ['#c51111', '#132ed1', '#117f2d', '#ed54ba', '#ef7d0e', '#f5f557'];
   var BOT_NAMES = ['Houston', 'Jebediah', 'Valentina', 'Buzz', 'Ripley'];
-  var OFFLINE_LAUNCHERS = { electron: 900, falcon9: 1080, sls: 1280 };
+  var OFFLINE_LAUNCHERS = { electron: 1200, falcon9: 1600, sls: 2200 };
   var OFFLINE_PAYLOADS = {
     light: { mass: 70, science: 90 },
     medium: { mass: 190, science: 200 },
@@ -58,7 +59,8 @@ window.RTM.Net = (function () {
     telemetry: {
       fuel: 100, o2: 100, food: 100, science: 0, marsProgress: 0,
       maxMass: 1080, totalMass: 0, crewMass: 0, aliveCount: 0,
-      ghostCount: 0, massPenalty: 1, starving: false, overloaded: false
+      ghostCount: 0, massPenalty: 1, starving: false, overloaded: false,
+      hull: 100, autopilot: true, emergencyMode: null
     },
     tasks: { progress: 0, completions: 0, byTask: {} },
     settings: { rocket: 'falcon9', sciencePayload: 'medium', foodMass: 160, o2Mass: 150, fuelMass: 250 },
@@ -389,11 +391,11 @@ window.RTM.Net = (function () {
 
     startGame: function (data) {
       if (!state.room) return;
-      if (!data || data.fillBots !== false) {
+      if (data && data.fillBots === true) {
         while (Object.keys(state.players).length < 6) offline.addBot();
       }
       var ids = Object.keys(state.players);
-      if (ids.length < 2) return;
+      if (ids.length < 1) return;
       var i;
       for (i = 0; i < ids.length; i++) {
         var player = state.players[ids[i]];
@@ -412,9 +414,7 @@ window.RTM.Net = (function () {
         player.isPilot = false;
         player.isHost = player.id === state.room.hostId;
       }
-      var imposter = state.players[ids[Math.floor(Math.random() * ids.length)]];
-      imposter.role = 'impostor';
-      state.localRole = state.players[playerId].role;
+      state.localRole = 'crewmate';
       state.room.phase = 'playing';
       state.room.scene = 'ship';
       state.phase = 'roleReveal';
@@ -457,15 +457,13 @@ window.RTM.Net = (function () {
         var t = state.telemetry;
         offline.recompute();
         var penalty = Math.max(1, t.massPenalty);
-        t.o2 = Math.max(0, t.o2 - 0.14 * t.aliveCount);
-        t.food = Math.max(0, t.food - 0.12 * t.aliveCount);
-        t.fuel = Math.max(0, t.fuel - 0.55 * penalty);
+        t.o2 = Math.max(0, t.o2 - 0.015 * t.aliveCount);
+        t.food = Math.max(0, t.food - 0.015 * t.aliveCount);
+        t.fuel = Math.max(0, t.fuel - 0.08 * penalty);
         t.marsProgress = Math.min(100, t.marsProgress + 1.4 / penalty);
         t.starving = t.food <= 0;
         dispatchTelemetry();
-        if (t.o2 <= 0 || t.fuel <= 0) {
-          offline.endGame('imposters', 'life-support-failure');
-        } else if (t.marsProgress >= 100) {
+        if (t.marsProgress >= 100) {
           offline.endGame('crew', 'mars-arrival');
         }
       }, 1000);
@@ -837,16 +835,8 @@ window.RTM.Net = (function () {
     checkWin: function () {
       if (state.phase === 'debrief') return;
       var alive = Object.keys(state.players).filter(function (id) { return state.players[id].alive; });
-      var impostors = alive.filter(function (id) { return state.players[id].role === 'impostor'; });
-      var crew = alive.filter(function (id) { return state.players[id].role !== 'impostor'; });
-      if (state.telemetry.o2 <= 0 || state.telemetry.fuel <= 0) {
-        offline.endGame('imposters', 'life-support-failure');
-      } else if (impostors.length === 0) {
-        offline.endGame('crew', 'imposters-eliminated');
-      } else if (crew.length === 0) {
-        offline.endGame('imposters', 'crew-eliminated');
-      } else if (impostors.length >= crew.length) {
-        offline.endGame('imposters', 'imposter-parity');
+      if (alive.length === 0) {
+        offline.endGame('lost', 'all-crew-lost');
       } else if (state.telemetry.marsProgress >= 100) {
         offline.endGame('crew', 'mars-arrival');
       }
@@ -1129,6 +1119,25 @@ window.RTM.Net = (function () {
       case 'cargo:jettisoned':
         if (data && data.telemetry) Object.assign(state.telemetry, data.telemetry);
         break;
+      case 'emergency:started':
+        if (state.telemetry) {
+          state.telemetry.emergencyMode = {
+            type: data && data.type,
+            endsAt: data && data.endsAt,
+            duration: (data && data.duration) || 60
+          };
+        }
+        break;
+      case 'emergency:cleared':
+        if (state.telemetry) {
+          state.telemetry.emergencyMode = null;
+        }
+        break;
+      case 'cockpit:asteroid:alert':
+        if (state.telemetry) {
+          state.telemetry.autopilot = false;
+        }
+        break;
       case 'game:ended':
         state.phase = 'debrief';
         if (data && data.players) syncPlayerList(data.players);
@@ -1194,7 +1203,19 @@ window.RTM.Net = (function () {
   }
 
   function isHost() {
-    return !!(state.room && state.room.hostId === playerId);
+    if (offlineMode) return true;
+    if (!state.room) return true;
+    if (state.room.hostId && state.room.hostId === playerId) return true;
+
+    var player = state.players[playerId];
+    if (player && player.isHost) return true;
+
+    var humanIds = Object.keys(state.players).filter(function(id) {
+      return !state.players[id].isBot;
+    });
+    if (humanIds.length > 0 && humanIds[0] === playerId) return true;
+
+    return false;
   }
 
   function isImpostor() {

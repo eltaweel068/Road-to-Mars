@@ -161,27 +161,6 @@ window.RTM.Audio = (function () {
       play('voice_start', 0.5);
     });
 
-    // telemetry warnings
-    bus.addEventListener('telemetry:updated', function (e) {
-      var detail = e.detail || e;
-      var data = detail.telemetry || detail;
-
-      // starvation warning: food below 15%
-      if (data.food !== undefined && data.food < 15) {
-        playWithCooldown('overg', 0.5);
-      }
-
-      // low fuel warning: below 15%
-      if (data.fuel !== undefined && data.fuel < 15) {
-        playWithCooldown('pullup', 0.6);
-      }
-
-      // low O2 warning: below 15%
-      if (data.o2 !== undefined && data.o2 < 15) {
-        playWithCooldown('pullup', 0.6);
-      }
-    });
-
     // player ejected → alert
     bus.addEventListener('player:ejected', function () {
       play('alert', 0.5);

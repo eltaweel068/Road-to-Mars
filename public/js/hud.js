@@ -90,6 +90,8 @@ window.RTM.HUD = (function () {
     body.appendChild(_makeGaugeRow('FOOD', 'gaugeFood', 'gauge-food', '100%'));
     // Fuel gauge
     body.appendChild(_makeGaugeRow('FUEL', 'gaugeFuel', 'gauge-fuel', '100%'));
+    // Hull gauge
+    body.appendChild(_makeGaugeRow('HULL', 'gaugeHull', 'gauge-hull', '100%'));
     // Science
     body.appendChild(_makeInfoRow('SCI', 'sciValue', '0', 'info-sci'));
     // Mass budget
@@ -170,6 +172,12 @@ window.RTM.HUD = (function () {
     els.gaugeFuel = document.getElementById('gaugeFuel');
     els.gaugeFuelPct = document.getElementById('gaugeFuelPct');
     els.gaugeFuelWarn = document.getElementById('gaugeFuelWarn');
+    els.gaugeHull = document.getElementById('gaugeHull');
+    els.gaugeHullPct = document.getElementById('gaugeHullPct');
+    els.gaugeHullWarn = document.getElementById('gaugeHullWarn');
+    els.emergencyKlaxon = document.getElementById('emergencyKlaxon');
+    els.klaxonText = document.getElementById('klaxonText');
+    els.klaxonCountdown = document.getElementById('klaxonCountdown');
     els.gaugeMars = document.getElementById('gaugeMars');
     els.gaugeMarsPct = document.getElementById('gaugeMarsPct');
     els.sciValue = document.getElementById('sciValue');
@@ -241,6 +249,41 @@ window.RTM.HUD = (function () {
     var fuel = _clamp(telemetry.fuel != null ? telemetry.fuel : 100, 0, 100);
     _animateGauge(els.gaugeFuel, els.gaugeFuelPct, fuel);
     _setWarning(els.gaugeFuelWarn, fuel < 20, 'LOW FUEL!', 'gaugeFuel');
+
+    /* --- Hull --- */
+    var hull = _clamp(telemetry.hull != null ? telemetry.hull : 100, 0, 100);
+    _animateGauge(els.gaugeHull, els.gaugeHullPct, hull);
+    _setWarning(els.gaugeHullWarn, hull < 35, 'HULL BREACH!', 'gaugeHull');
+
+    /* --- Emergency Reserve Klaxon Overlay --- */
+    if (telemetry.emergencyMode) {
+      if (els.emergencyKlaxon) {
+        els.emergencyKlaxon.style.display = 'block';
+        document.body.classList.add('emergency-reserve-active');
+      }
+      if (els.klaxonText) {
+        els.klaxonText.textContent = 'EMERGENCY ' + (telemetry.emergencyMode.type || 'RESERVE').toUpperCase() + ' CRITICAL!';
+      }
+      if (els.klaxonCountdown) {
+        var remaining = Math.max(0, Math.ceil((telemetry.emergencyMode.endsAt - Date.now()) / 1000));
+        els.klaxonCountdown.textContent = remaining + 's';
+      }
+      if (RTM.Audio && !warningFlashTimers['emergencyAlarm']) {
+        RTM.Audio.play('alert');
+        warningFlashTimers['emergencyAlarm'] = setInterval(function () {
+          if (telemetry.emergencyMode && RTM.Audio) RTM.Audio.play('alert');
+        }, 4000);
+      }
+    } else {
+      if (els.emergencyKlaxon) {
+        els.emergencyKlaxon.style.display = 'none';
+        document.body.classList.remove('emergency-reserve-active');
+      }
+      if (warningFlashTimers['emergencyAlarm']) {
+        clearInterval(warningFlashTimers['emergencyAlarm']);
+        delete warningFlashTimers['emergencyAlarm'];
+      }
+    }
 
     /* --- Science --- */
     if (els.sciValue) {
@@ -339,7 +382,7 @@ window.RTM.HUD = (function () {
 
     // PILOT 3D button
     var btnPilot = _makeActionBtn('btnPilot', 'action-btn action-btn-pilot', '#132ed1', '🚀', 'PILOT 3D (P)');
-    btnPilot.style.display = 'none';
+    btnPilot.style.display = 'flex';
     btnPilot.addEventListener('click', function () {
       claimAndEnterPilot();
     });
@@ -353,18 +396,6 @@ window.RTM.HUD = (function () {
       }
     });
     container.appendChild(btnMap);
-
-    // KILL button
-    var btnKill = _makeActionBtn('btnKill', 'action-btn action-btn-kill', '#c51111', '💀', 'KILL', '/assets/icons/kill.png');
-    btnKill.style.display = 'none';
-    btnKill.addEventListener('click', function () {
-      if (RTM.Moon && RTM.Moon.isActive()) {
-        if (RTM.Moon.kill) RTM.Moon.kill();
-      } else if (RTM.Ship && RTM.Ship.kill) {
-        RTM.Ship.kill();
-      }
-    });
-    container.appendChild(btnKill);
 
     // MOON EVA button
     var btnMoon = _makeActionBtn('btnMoonEva', 'action-btn action-btn-moon', '#6b6b6b', '🌙', 'MOON EVA');
@@ -435,17 +466,8 @@ window.RTM.HUD = (function () {
       }
     }
 
-    var canPilot = !!state.nearPilotChair || (RTM.Net && RTM.Net.isPilot());
-    if (!canPilot && RTM.Renderer && RTM.Renderer.isInNavigationRoom && RTM.Net) {
-      var localPlayer = RTM.Net.getState().players[RTM.Net.playerId];
-      if (localPlayer && RTM.Renderer.isInNavigationRoom(localPlayer.x, localPlayer.y)) {
-        canPilot = true;
-      }
-    }
-    _showBtn(els.btnPilot, canPilot);
-
-    var isImposter = RTM.Net && RTM.Net.isImpostor && RTM.Net.isImpostor();
-    _showBtn(els.btnKill, !!isImposter && !!state.nearCrewmate);
+    // PILOT 3D button is ALWAYS accessible during gameplay
+    _showBtn(els.btnPilot, true);
 
     var canMoon = !!state.canLandMoon || !!state.canDepartMoon;
     _showBtn(els.btnMoonEva, canMoon);
@@ -467,13 +489,10 @@ window.RTM.HUD = (function () {
     if (!RTM.Net) return;
     var gameState = RTM.Net.getState();
     if (gameState.phase !== 'playing') return;
-    if (RTM.Net.isPilot()) {
-      if (RTM.Cockpit && RTM.Cockpit.show) RTM.Cockpit.show();
-    } else if (!gameState.pilotSeat || !gameState.pilotSeat.locked || gameState.pilotSeat.occupantId === RTM.Net.playerId) {
-      if (RTM.Cockpit) RTM.Cockpit._pendingAutoOpen = true;
-      RTM.Net.emit('pilot:seat:claim');
-    } else {
-      showNotification('Pilot seat is currently occupied!', 'error');
+    if (RTM.Cockpit) RTM.Cockpit._pendingAutoOpen = true;
+    RTM.Net.emit('pilot:seat:claim');
+    if (RTM.Cockpit && RTM.Cockpit.show) {
+      RTM.Cockpit.show();
     }
   }
 

@@ -1,16 +1,31 @@
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+server.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime and environment
+.env
+.env.local
+.env.*.local
 
 # Operating system files
 .DS_Store
 Thumbs.db
-node_modules/
-package-lock.json
-package.json
-REFERENCE_ARCHITECTURE.md
+
 # Editor and IDE settings
 .idea/
 .vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
-# Temporary files
+# Temporary and swap files
 *.tmp
 *.swp
 *~
