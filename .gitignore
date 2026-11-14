@@ -1,0 +1,16 @@
+
+# Operating system files
+.DS_Store
+Thumbs.db
+node_modules/
+package-lock.json
+package.json
+REFERENCE_ARCHITECTURE.md
+# Editor and IDE settings
+.idea/
+.vscode/
+
+# Temporary files
+*.tmp
+*.swp
+*~

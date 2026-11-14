@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Road to Mars</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Main 2D game canvas (1400x800 world) -->
+  <canvas id="gameCanvas" width="1400" height="800"></canvas>
+
+  <!-- 3D pilot cockpit overlay (hidden by default) -->
+  <div id="cockpit3d"></div>
+
+  <!-- UI layer: all HTML overlays sit here -->
+  <div id="uiLayer">
+
+    <!-- ===== LOBBY ===== -->
+    <div id="lobbyScreen" class="screen">
+      <div class="au-panel lobby-panel">
+        <h1 class="lobby-title">ROAD TO MARS</h1>
+        <div class="room-code-wrap">
+          <span class="room-code-label">ROOM CODE</span>
+          <span id="roomCode" class="room-code">????</span>
+        </div>
+
+        <div class="player-grid" id="playerGrid">
+          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
+          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
+          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
+          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
+          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
+          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
+        </div>
+
+        <div class="lobby-config">
+          <h2 class="config-heading">MISSION CONFIG</h2>
+
+          <div class="config-section">
+            <span class="config-label">ROCKET</span>
+            <div class="tab-row" id="rocketTabs">
+              <button class="au-btn au-btn-gray tab-btn active" data-rocket="0">ATLAS</button>
+              <button class="au-btn au-btn-gray tab-btn" data-rocket="1">TITAN</button>
+              <button class="au-btn au-btn-gray tab-btn" data-rocket="2">SATURN</button>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <span class="config-label">PAYLOAD</span>
+            <div class="tab-row" id="payloadTabs">
+              <button class="au-btn au-btn-gray tab-btn active" data-payload="0">ROVER</button>
+              <button class="au-btn au-btn-gray tab-btn" data-payload="1">HABITAT</button>
+              <button class="au-btn au-btn-gray tab-btn" data-payload="2">DRILL</button>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <span class="config-label">FOOD <span id="foodVal" class="slider-val">100 kg</span></span>
+            <input type="range" id="foodSlider" class="au-slider" min="0" max="500" value="100">
+          </div>
+
+          <div class="config-section">
+            <span class="config-label">OXYGEN <span id="o2Val" class="slider-val">100 kg</span></span>
+            <input type="range" id="o2Slider" class="au-slider" min="0" max="500" value="100">
+          </div>
+
+          <div class="mass-budget-bar" id="massBudgetBar">
+            <div class="mb-segment mb-dry" id="mbDry"></div>
+            <div class="mb-segment mb-payload" id="mbPayload"></div>
+            <div class="mb-segment mb-food" id="mbFood"></div>
+            <div class="mb-segment mb-o2" id="mbO2"></div>
+            <div class="mb-segment mb-crew" id="mbCrew"></div>
+            <div class="mb-limit-line" id="mbLimit"></div>
+          </div>
+          <div class="mass-budget-readout">
+            <span id="massTotal">0</span> / <span id="massMax">0</span> kg
+            <span id="massOverloaded" class="overloaded-warn" style="display:none;">OVERLOADED</span>
+          </div>
+        </div>
+
+        <div class="lobby-actions">
+          <button class="au-btn au-btn-blue" id="addBotBtn">+ BOT</button>
+          <button class="au-btn au-btn-red" id="removeBotBtn">- BOT</button>
+          <button class="au-btn au-btn-yellow lobby-start-btn" id="startBtn">START MISSION</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ROLE REVEAL ===== -->
+    <div id="roleReveal" class="screen" style="display:none;">
+      <div class="role-reveal-inner">
+        <div id="shhhText" class="shhh-text">SHHHHH!</div>
+        <div id="roleText" class="role-text"></div>
+      </div>
+    </div>
+
+    <!-- ===== HUD ===== -->
+    <div id="taskBar">
+      <div class="taskbar-frame">
+        <div class="taskbar-label">TASKS</div>
+        <div class="taskbar-track" id="taskBarTrack">
+          <!-- JS fills green segments -->
+        </div>
+      </div>
+    </div>
+
+    <div id="telemetryClipboard" class="au-panel clipboard-collapsed">
+      <button class="clipboard-toggle" id="clipboardToggle">▼ TELEMETRY</button>
+      <div class="clipboard-body" id="clipboardBody">
+        <div class="gauge-row"><span class="gauge-label">O2</span><div class="gauge-track"><div class="gauge-fill gauge-o2" id="gaugeO2"></div></div></div>
+        <div class="gauge-row"><span class="gauge-label">FOOD</span><div class="gauge-track"><div class="gauge-fill gauge-food" id="gaugeFood"></div></div></div>
+        <div class="gauge-row"><span class="gauge-label">FUEL</span><div class="gauge-track"><div class="gauge-fill gauge-fuel" id="gaugeFuel"></div></div></div>
+        <div class="gauge-row"><span class="gauge-label">SCI</span><div class="gauge-track"><div class="gauge-fill gauge-sci" id="gaugeSci"></div></div></div>
+        <div class="gauge-row"><span class="gauge-label">MASS</span><div class="gauge-track"><div class="gauge-fill gauge-mass" id="gaugeMass"></div></div></div>
+      </div>
+    </div>
+
+    <div id="actionButtons">
+      <button class="action-btn" id="btnUse">USE</button>
+      <button class="action-btn" id="btnReport">REPORT</button>
+      <button class="action-btn" id="btnPilot">PILOT 3D</button>
+      <button class="action-btn action-btn-kill" id="btnKill">KILL</button>
+      <button class="action-btn action-btn-sab" id="btnSabotage">SAB</button>
+    </div>
+
+    <!-- ===== MEETING TABLET ===== -->
+    <div id="meetingTablet" class="screen" style="display:none;">
+      <div class="tablet-frame">
+        <div class="tablet-header">
+          <span class="tablet-title">EMERGENCY MEETING</span>
+          <span class="tablet-timer" id="meetingTimer">30</span>
+        </div>
+        <div class="vote-grid" id="voteGrid">
+          <!-- JS fills vote cards -->
+        </div>
+        <div class="tablet-chat" id="tabletChat">
+          <div class="chat-messages" id="chatMessages"></div>
+          <div class="chat-input-row">
+            <input type="text" id="chatInput" class="au-input" placeholder="Type...">
+            <button class="au-btn" id="chatSend">SEND</button>
+          </div>
+        </div>
+        <div class="tablet-footer">
+          <button class="au-btn au-btn-gray" id="skipVoteBtn">SKIP VOTE</button>
+          <button class="au-btn au-btn-red jettison-btn" id="jettisonBtn">⚠ JETTISON</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TASK MINI-GAME ===== -->
+    <div id="taskOverlay" class="task-overlay" style="display:none;">
+      <div class="task-panel au-panel">
+        <button class="task-close" id="taskClose">✕</button>
+        <div class="task-content" id="taskContent"></div>
+      </div>
+    </div>
+
+    <!-- ===== EJECTION CUTSCENE ===== -->
+    <div id="ejectionScreen" class="screen" style="display:none;">
+      <div class="ejection-starfield" id="ejectionStarfield"></div>
+      <div class="ejection-crewmate" id="ejectionCrewmate"></div>
+      <div class="ejection-text" id="ejectionText"></div>
+    </div>
+
+    <!-- ===== DEBRIEF ===== -->
+    <div id="debriefScreen" class="screen" style="display:none;">
+      <div class="au-panel debrief-panel">
+        <h1 class="debrief-outcome" id="debriefOutcome"></h1>
+        <div class="debrief-stats" id="debriefStats"></div>
+        <button class="au-btn au-btn-yellow" id="playAgainBtn">PLAY AGAIN</button>
+      </div>
+    </div>
+
+  </div><!-- /uiLayer -->
+
+  <!-- Global namespace -->
+  <script>window.RTM = {};</script>
+
+  <!-- Vendor libs -->
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://typpo.github.io/spacekit/build/spacekit.js"></script>
+
+  <!-- Game modules (order matters) -->
+  <script src="js/net.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/lobby.js"></script>
+  <script src="js/ship.js"></script>
+  <script src="js/moon.js"></script>
+  <script src="js/cockpit.js"></script>
+  <script src="js/meeting.js"></script>
+  <script src="js/tasks.js"></script>
+  <script src="js/debrief.js"></script>
+  <script src="js/main.js"></script>
+
+</body>
+</html>
