@@ -1149,6 +1149,55 @@
       ctx.textAlign = 'center';
       ctx.strokeText(localP.name || localPlayerId, localP.x, localP.y - 36);
       ctx.fillText(localP.name || localPlayerId, localP.x, localP.y - 36);
+
+      // Floating Interaction Prompt
+      var nearbyStation = getTaskStationAt(localP.x, localP.y);
+      if (nearbyStation) {
+        var promptText = '[PRESS E / USE] OPEN TASK: ' + (nearbyStation.room || nearbyStation.id).toUpperCase();
+        ctx.save();
+        ctx.font = 'bold 12px "Courier New", monospace';
+        var pWidth = ctx.measureText(promptText).width;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.strokeStyle = '#38fedc';
+        ctx.lineWidth = 2;
+        roundRect(ctx, localP.x - pWidth / 2 - 8, localP.y - 72, pWidth + 16, 22, 5);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#38fedc';
+        ctx.textAlign = 'center';
+        ctx.fillText(promptText, localP.x, localP.y - 57);
+        ctx.restore();
+      } else if (isNearPilotChair(localP.x, localP.y)) {
+        var pilotPrompt = '[PRESS E / P] ENTER FLIGHT DECK (3D COCKPIT)';
+        ctx.save();
+        ctx.font = 'bold 12px "Courier New", monospace';
+        var pilotWidth = ctx.measureText(pilotPrompt).width;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.strokeStyle = '#f5f557';
+        ctx.lineWidth = 2;
+        roundRect(ctx, localP.x - pilotWidth / 2 - 8, localP.y - 72, pilotWidth + 16, 22, 5);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#f5f557';
+        ctx.textAlign = 'center';
+        ctx.fillText(pilotPrompt, localP.x, localP.y - 57);
+        ctx.restore();
+      } else if (isNearEmergencyButton(localP.x, localP.y)) {
+        var meetPrompt = '[PRESS E / R] CALL EMERGENCY MEETING';
+        ctx.save();
+        ctx.font = 'bold 12px "Courier New", monospace';
+        var meetWidth = ctx.measureText(meetPrompt).width;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.strokeStyle = '#c51111';
+        ctx.lineWidth = 2;
+        roundRect(ctx, localP.x - meetWidth / 2 - 8, localP.y - 72, meetWidth + 16, 22, 5);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#ff7777';
+        ctx.textAlign = 'center';
+        ctx.fillText(meetPrompt, localP.x, localP.y - 57);
+        ctx.restore();
+      }
     }
 
     ctx.restore(); // End camera transform
@@ -1175,59 +1224,107 @@
   function getActiveObjectives(gameState) {
     var objectives = [];
     var telemetry = (gameState && (gameState.telemetry || gameState.resources)) || {};
+    var o2 = Number(telemetry.o2 != null ? telemetry.o2 : 100);
+    var fuel = Number(telemetry.fuel != null ? telemetry.fuel : 100);
+    var hull = Number(telemetry.hull != null ? telemetry.hull : 100);
 
-    // 1. Oxygen Emergency or Low O2 (< 35%)
-    if (telemetry.o2 < 35 || (telemetry.emergencyMode && telemetry.emergencyMode.type === 'o2')) {
+    // 1. Critical System Emergencies (Priority 10)
+    if (o2 < 35 || (telemetry.emergencyMode && telemetry.emergencyMode.type === 'o2')) {
       objectives.push({
         id: 'o2_emergency',
-        x: 2250, y: 450, // Greenhouse / O2 Station
-        label: '🌱 WATER PLANTS IN GREENHOUSE (O2 LOW!)',
+        x: 2250, y: 450,
+        label: 'EMERGENCY: WATER PLANTS IN GREENHOUSE (O2 LOW!)',
         color: '#38fedc',
         priority: 10
       });
     }
 
-    // 2. Asteroids / Autopilot Disengaged
     if (telemetry.autopilot === false) {
       objectives.push({
         id: 'pilot_cockpit',
-        x: 2750, y: 950, // Navigation Cockpit Chair
-        label: '🕹️ TAKE PILOT CONTROLS (ASTEROIDS AHEAD!)',
+        x: 2850, y: 950,
+        label: 'ASTEROID ALERT: TAKE PILOT SEAT (COCKPIT)',
         color: '#f5f557',
+        priority: 10
+      });
+    }
+
+    if (fuel < 30 || (telemetry.emergencyMode && telemetry.emergencyMode.type === 'fuel')) {
+      objectives.push({
+        id: 'electrical_wires',
+        x: 850, y: 1350,
+        label: 'POWER ALERT: REPAIR WIRES IN ELECTRICAL',
+        color: '#ef7d0d',
         priority: 9
       });
     }
 
-    // 3. Fuel or Electrical Emergency
-    if (telemetry.fuel < 30 || (telemetry.emergencyMode && telemetry.emergencyMode.type === 'fuel')) {
-      objectives.push({
-        id: 'electrical_wires',
-        x: 850, y: 1350, // Electrical
-        label: '⚡ FIX WIRES IN ELECTRICAL (FUEL CRITICAL!)',
-        color: '#ef7d0d',
-        priority: 8
-      });
-    }
-
-    // 4. Hull Breach (< 40% Hull)
-    if (telemetry.hull < 40 || (telemetry.emergencyMode && telemetry.emergencyMode.type === 'hull')) {
+    if (hull < 40 || (telemetry.emergencyMode && telemetry.emergencyMode.type === 'hull')) {
       objectives.push({
         id: 'hull_repair',
-        x: 1600, y: 1550, // Storage & Hull Welding
-        label: '🛠️ WELD HULL BREACH IN STORAGE',
+        x: 1500, y: 1450,
+        label: 'HULL BREACH: PLASMA WELD BULKHEAD IN STORAGE',
         color: '#c51111',
         priority: 9
       });
     }
 
-    // 5. Moon Landed (Romy Cheese EVA)
+    // 2. Persistent Routine Ship Maintenance Waypoints (Priority 5)
+    // Always active so astronauts always have guided tasks to complete
+    if (o2 >= 35) {
+      objectives.push({
+        id: 'o2_routine',
+        x: 2250, y: 450,
+        label: 'GREENHOUSE: WATER PLANTS (+20% O2)',
+        color: '#38fedc',
+        priority: 5
+      });
+    }
+
+    if (fuel >= 30) {
+      objectives.push({
+        id: 'wires_routine',
+        x: 850, y: 1350,
+        label: 'ELECTRICAL: CONNECT POWER BUS (+15% FUEL)',
+        color: '#f5f557',
+        priority: 5
+      });
+    }
+
+    objectives.push({
+      id: 'science_routine',
+      x: 850, y: 450,
+      label: 'LAB: ALIGN DSN ANTENNA (+30 SCIENCE)',
+      color: '#72e7ff',
+      priority: 5
+    });
+
+    objectives.push({
+      id: 'nav_routine',
+      x: 2640, y: 1040,
+      label: 'NAVIGATION: LOCK ASTEROID RADAR (+8% PROGRESS)',
+      color: '#50ef39',
+      priority: 5
+    });
+
+    if (hull >= 40) {
+      objectives.push({
+        id: 'cargo_routine',
+        x: 1500, y: 1450,
+        label: 'STORAGE: WELD HULL SEAMS (+20% HULL, -15KG)',
+        color: '#ffb347',
+        priority: 4
+      });
+    }
+
+    // 3. Moon Landed EVA Objective
     if (currentScene === 'moon' && gameState.moon && gameState.moon.state === 'landed') {
       objectives.push({
         id: 'moon_cheese',
         x: 1650, y: 550,
-        label: '🌕 COLLECT ROMY CHEESE (+18% FOOD)!',
+        label: 'EVA: HARVEST ROMY CHEESE (+18% FOOD)',
         color: '#f5f557',
-        priority: 7
+        priority: 8
       });
     }
 

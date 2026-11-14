@@ -32,17 +32,18 @@ window.RTM.Tasks = (function () {
   }
 
   function openTask(taskId) {
-    if (!TASKS[taskId] || !RTM.Net || !els.overlay || !els.content) return;
+    var id = (typeof taskId === 'object' && taskId !== null) ? taskId.id : taskId;
+    if (!id || !TASKS[id] || !RTM.Net || !els.overlay || !els.content) return;
     var gameState = RTM.Net.getState();
     if (gameState.phase !== 'playing' || !RTM.Net.isAlive()) return;
     if (open) close();
-    currentTask = taskId;
+    currentTask = id;
     completed = false;
     open = true;
     els.overlay.style.display = 'flex';
     document.body.classList.add('task-open');
     cleanupState();
-    buildTask(taskId);
+    buildTask(id);
   }
 
   function close() {
@@ -113,15 +114,16 @@ window.RTM.Tasks = (function () {
     var ctx = canvas.getContext('2d');
     var animId = null;
     var plants = [
-      { x: 70,  waterLevel: 0, bloomed: false, label: 'Alocasia-X' },
-      { x: 180, waterLevel: 0, bloomed: false, label: 'Fern-Mars' },
-      { x: 290, waterLevel: 0, bloomed: false, label: 'Chlorophytum' },
-      { x: 400, waterLevel: 0, bloomed: false, label: 'Sprout-V' }
+      { x: 75,  waterLevel: 0, bloomed: false, label: 'Alocasia Mars-1' },
+      { x: 185, waterLevel: 0, bloomed: false, label: 'Spirulina Moss' },
+      { x: 295, waterLevel: 0, bloomed: false, label: 'Martian Bamboo' },
+      { x: 405, waterLevel: 0, bloomed: false, label: 'O2 Fern Sprout' }
     ];
 
     var waterDrops = [];
+    var bubbles = [];
     var isPouring = false;
-    var mousePos = { x: 270, y: 80 };
+    var mousePos = { x: 270, y: 70 };
     var finished = false;
 
     function updateMouse(e) {
@@ -151,24 +153,33 @@ window.RTM.Tasks = (function () {
     };
 
     function loop() {
-      ctx.fillStyle = '#18241d';
+      ctx.fillStyle = '#101c15';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Greenhouse ceiling and grow-lights
-      ctx.fillStyle = '#223828';
-      ctx.fillRect(0, 0, canvas.width, 24);
-      ctx.fillStyle = '#ff5599';
-      for (var l = 50; l < canvas.width; l += 80) {
-        ctx.fillRect(l, 8, 40, 6);
+      // Greenhouse ceiling and UV grow-lights
+      ctx.fillStyle = '#1b2f22';
+      ctx.fillRect(0, 0, canvas.width, 28);
+      ctx.fillStyle = '#ff3388';
+      for (var l = 40; l < canvas.width; l += 70) {
+        ctx.fillRect(l, 8, 36, 6);
+        ctx.fillStyle = 'rgba(255, 51, 136, 0.12)';
+        ctx.beginPath();
+        ctx.moveTo(l, 14);
+        ctx.lineTo(l - 20, 290);
+        ctx.lineTo(l + 56, 290);
+        ctx.lineTo(l + 36, 14);
+        ctx.fill();
+        ctx.fillStyle = '#ff3388';
       }
 
-      // Water droplets
+      // Water droplets from hose nozzle
       if (isPouring) {
-        for (var i = 0; i < 3; i++) {
+        for (var i = 0; i < 4; i++) {
           waterDrops.push({
-            x: mousePos.x + (Math.random() - 0.5) * 16,
-            y: mousePos.y + 15,
-            vy: 6 + Math.random() * 4
+            x: mousePos.x + (Math.random() - 0.5) * 14,
+            y: mousePos.y + 12,
+            vx: (Math.random() - 0.5) * 1.5,
+            vy: 7 + Math.random() * 5
           });
         }
       }
@@ -176,89 +187,119 @@ window.RTM.Tasks = (function () {
       ctx.fillStyle = '#38fedc';
       for (var d = waterDrops.length - 1; d >= 0; d--) {
         var drop = waterDrops[d];
+        drop.x += drop.vx;
         drop.y += drop.vy;
         ctx.beginPath();
-        ctx.arc(drop.x, drop.y, 3.5, 0, Math.PI * 2);
+        ctx.arc(drop.x, drop.y, 3, 0, Math.PI * 2);
         ctx.fill();
 
         plants.forEach(function (plant) {
-          if (Math.abs(drop.x - plant.x - 30) < 35 && drop.y >= 280 && drop.y <= 330) {
-            plant.waterLevel = Math.min(100, plant.waterLevel + 1.2);
-            if (plant.waterLevel >= 100) plant.bloomed = true;
+          if (Math.abs(drop.x - (plant.x + 30)) < 32 && drop.y >= 270 && drop.y <= 325) {
+            plant.waterLevel = Math.min(100, plant.waterLevel + 0.9);
+            if (plant.waterLevel >= 100 && !plant.bloomed) {
+              plant.bloomed = true;
+              for (var b = 0; b < 6; b++) {
+                bubbles.push({
+                  x: plant.x + 30 + (Math.random() - 0.5) * 20,
+                  y: 200,
+                  vy: -1.2 - Math.random() * 1.8,
+                  r: 4 + Math.random() * 5
+                });
+              }
+              if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('lockondone', 0.4);
+            }
           }
         });
 
-        if (drop.y > canvas.height) waterDrops.splice(d, 1);
+        if (drop.y > canvas.height - 20) waterDrops.splice(d, 1);
       }
 
-      // Draw 4 Plant Pots & Plants
+      // Update O2 rising bubbles
+      ctx.strokeStyle = '#38fedc';
+      ctx.lineWidth = 1.5;
+      for (var bi = bubbles.length - 1; bi >= 0; bi--) {
+        var bubble = bubbles[bi];
+        bubble.y += bubble.vy;
+        bubble.x += Math.sin(Date.now() * 0.005 + bi) * 0.5;
+        ctx.beginPath();
+        ctx.arc(bubble.x, bubble.y, bubble.r, 0, Math.PI * 2);
+        ctx.stroke();
+        if (bubble.y < 35) bubbles.splice(bi, 1);
+      }
+
+      // Draw Pots & Botanicals
       var allBloomed = true;
       plants.forEach(function (plant) {
         if (!plant.bloomed) allBloomed = false;
 
-        // Pot
-        ctx.fillStyle = '#8b5a2b';
-        ctx.fillRect(plant.x, 290, 60, 50);
-        ctx.fillStyle = '#653b1b';
-        ctx.fillRect(plant.x - 4, 286, 68, 8);
+        // Planter pot
+        ctx.fillStyle = '#7a4e2d';
+        ctx.fillRect(plant.x, 285, 60, 55);
+        ctx.fillStyle = '#56351d';
+        ctx.fillRect(plant.x - 4, 280, 68, 8);
 
-        // Water gauge on pot
-        ctx.fillStyle = '#333333';
-        ctx.fillRect(plant.x + 8, 324, 44, 8);
+        // Water level gauge
+        ctx.fillStyle = '#1e2420';
+        ctx.fillRect(plant.x + 6, 322, 48, 8);
         ctx.fillStyle = plant.bloomed ? '#50ef39' : '#38fedc';
-        ctx.fillRect(plant.x + 8, 324, 44 * (plant.waterLevel / 100), 8);
+        ctx.fillRect(plant.x + 6, 322, 48 * (plant.waterLevel / 100), 8);
 
-        // Growth stem & leaves
+        // Stem growth
         var growth = plant.waterLevel / 100;
-        var plantColor = plant.bloomed ? '#50ef39' : '#887744';
-        ctx.strokeStyle = plantColor;
+        var stemHeight = growth * 105;
+        ctx.strokeStyle = plant.bloomed ? '#50ef39' : '#998844';
         ctx.lineWidth = 6;
         ctx.beginPath();
-        ctx.moveTo(plant.x + 30, 290);
-        ctx.lineTo(plant.x + 30, 290 - growth * 95);
+        ctx.moveTo(plant.x + 30, 280);
+        ctx.lineTo(plant.x + 30, 280 - stemHeight);
         ctx.stroke();
 
+        // Lush leaves
         if (growth > 0.25) {
-          ctx.fillStyle = plantColor;
+          ctx.fillStyle = plant.bloomed ? '#35c422' : '#776633';
           ctx.beginPath();
-          ctx.ellipse(plant.x + 15, 290 - growth * 60, 14 * growth, 7 * growth, -0.5, 0, Math.PI * 2);
-          ctx.ellipse(plant.x + 45, 290 - growth * 70, 14 * growth, 7 * growth, 0.5, 0, Math.PI * 2);
+          ctx.ellipse(plant.x + 14, 280 - stemHeight * 0.6, 14 * growth, 7 * growth, -0.4, 0, Math.PI * 2);
+          ctx.ellipse(plant.x + 46, 280 - stemHeight * 0.7, 14 * growth, 7 * growth, 0.4, 0, Math.PI * 2);
           ctx.fill();
         }
 
+        // Bloom flower
         if (plant.bloomed) {
-          // Flower bloom
           ctx.fillStyle = '#ff44aa';
           ctx.beginPath();
-          ctx.arc(plant.x + 30, 290 - 100, 10, 0, Math.PI * 2);
+          ctx.arc(plant.x + 30, 280 - stemHeight - 4, 12, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = '#ffff55';
           ctx.beginPath();
-          ctx.arc(plant.x + 30, 290 - 100, 4, 0, Math.PI * 2);
+          ctx.arc(plant.x + 30, 280 - stemHeight - 4, 5, 0, Math.PI * 2);
           ctx.fill();
-
-          // Oxygen bubble
-          ctx.strokeStyle = '#38fedc';
-          ctx.lineWidth = 2;
-          var bubbleY = 290 - 120 - ((Date.now() * 0.05 + plant.x * 2) % 60);
-          ctx.beginPath();
-          ctx.arc(plant.x + 30, bubbleY, 8, 0, Math.PI * 2);
-          ctx.stroke();
         }
+
+        // Pot Label
+        ctx.fillStyle = '#8899aa';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(plant.label, plant.x + 30, 354);
       });
 
-      // Watering Can Head
-      ctx.fillStyle = '#556677';
-      ctx.fillRect(mousePos.x - 22, mousePos.y - 12, 44, 24);
-      ctx.fillStyle = '#8899aa';
-      ctx.fillRect(mousePos.x + 10, mousePos.y + 4, 16, 8);
+      // Watering Hose Nozzle at Mouse
+      ctx.fillStyle = '#445566';
+      ctx.fillRect(mousePos.x - 18, mousePos.y - 12, 36, 22);
+      ctx.fillStyle = '#38fedc';
+      ctx.fillRect(mousePos.x - 6, mousePos.y + 10, 12, 6);
+
+      // HUD Text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('HOLD CLICK & WATER WILTING POTS UNTIL FULLY BLOOMED', canvas.width / 2, 50);
 
       if (allBloomed && !finished) {
         finished = true;
         ctx.fillStyle = '#50ef39';
         ctx.font = 'bold 22px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('🌱 GREENHOUSE THRIVING! (+20% O2)', canvas.width / 2, 60);
+        ctx.fillText('🌱 GREENHOUSE RESTORED! (+20% O2)', canvas.width / 2, 170);
         setTimeout(onComplete, 900);
         return;
       }
@@ -282,8 +323,7 @@ window.RTM.Tasks = (function () {
       { y: 290, color: colors[3], connected: -1 }
     ];
 
-    // Permute right terminals
-    var perm = [1, 3, 0, 2];
+    var perm = [2, 0, 3, 1];
     var rightTerminals = perm.map(function (pIdx, idx) {
       return { y: [80, 150, 220, 290][idx], color: colors[pIdx] };
     });
@@ -302,7 +342,7 @@ window.RTM.Tasks = (function () {
     function onMouseDown(e) {
       updateMouse(e);
       leftTerminals.forEach(function (term, idx) {
-        if (Math.hypot(mousePos.x - 50, mousePos.y - term.y) < 28 && term.connected === -1) {
+        if (Math.hypot(mousePos.x - 50, mousePos.y - term.y) < 30 && term.connected === -1) {
           draggingWire = idx;
         }
       });
@@ -312,16 +352,17 @@ window.RTM.Tasks = (function () {
       if (draggingWire !== -1) {
         var targetCol = leftTerminals[draggingWire].color;
         rightTerminals.forEach(function (rTerm, rIdx) {
-          if (rTerm.color === targetCol && Math.hypot(mousePos.x - 490, mousePos.y - rTerm.y) < 32) {
+          if (rTerm.color === targetCol && Math.hypot(mousePos.x - 490, mousePos.y - rTerm.y) < 34) {
             leftTerminals[draggingWire].connected = rIdx;
-            for (var s = 0; s < 18; s++) {
+            for (var s = 0; s < 22; s++) {
               sparks.push({
                 x: 490, y: rTerm.y,
-                vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
-                life: 22
+                vx: (Math.random() - 0.5) * 12,
+                vy: (Math.random() - 0.5) * 12,
+                life: 25
               });
             }
-            if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('hit');
+            if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('hit', 0.5);
           }
         });
         draggingWire = -1;
@@ -340,13 +381,17 @@ window.RTM.Tasks = (function () {
     };
 
     function loop() {
-      ctx.fillStyle = '#22252e';
+      ctx.fillStyle = '#1c1f2b';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Terminal panels
-      ctx.fillStyle = '#171920';
-      ctx.fillRect(20, 40, 60, 300);
-      ctx.fillRect(460, 40, 60, 300);
+      ctx.fillStyle = '#12141c';
+      ctx.fillRect(20, 45, 60, 290);
+      ctx.fillRect(460, 45, 60, 290);
+      ctx.strokeStyle = '#2f354a';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(20, 45, 60, 290);
+      ctx.strokeRect(460, 45, 60, 290);
 
       // Left sockets
       leftTerminals.forEach(function (term) {
@@ -370,32 +415,34 @@ window.RTM.Tasks = (function () {
         ctx.stroke();
       });
 
-      // Wires
+      // Connected / Dragging Wires with natural sag
       var connectedCount = 0;
       leftTerminals.forEach(function (term, idx) {
         if (term.connected !== -1) {
           connectedCount++;
           var rY = rightTerminals[term.connected].y;
           ctx.strokeStyle = term.color;
-          ctx.lineWidth = 10;
+          ctx.lineWidth = 11;
           ctx.beginPath();
           ctx.moveTo(50, term.y);
           ctx.bezierCurveTo(200, term.y + 40, 340, rY + 40, 490, rY);
           ctx.stroke();
         } else if (draggingWire === idx) {
           ctx.strokeStyle = term.color;
-          ctx.lineWidth = 10;
+          ctx.lineWidth = 11;
           ctx.beginPath();
           ctx.moveTo(50, term.y);
-          ctx.bezierCurveTo(150, term.y + 20, mousePos.x - 50, mousePos.y + 20, mousePos.x, mousePos.y);
+          ctx.bezierCurveTo(160, term.y + 25, mousePos.x - 60, mousePos.y + 25, mousePos.x, mousePos.y);
           ctx.stroke();
         }
       });
 
-      // Sparks
+      // Live electric sparks
       for (var sp = sparks.length - 1; sp >= 0; sp--) {
         var spark = sparks[sp];
-        spark.x += spark.vx; spark.y += spark.vy; spark.life--;
+        spark.x += spark.vx;
+        spark.y += spark.vy;
+        spark.life--;
         ctx.fillStyle = '#f5f557';
         ctx.fillRect(spark.x, spark.y, 3, 3);
         if (spark.life <= 0) sparks.splice(sp, 1);
@@ -406,8 +453,8 @@ window.RTM.Tasks = (function () {
         ctx.fillStyle = '#50ef39';
         ctx.font = 'bold 22px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('⚡ POWER BUS RESTORED! (+15% FUEL)', canvas.width / 2, 350);
-        setTimeout(onComplete, 800);
+        ctx.fillText('⚡ POWER BUS RESTORED! (+15% FUEL)', canvas.width / 2, 355);
+        setTimeout(onComplete, 850);
         return;
       }
 
@@ -423,13 +470,18 @@ window.RTM.Tasks = (function () {
     var ctx = canvas.getContext('2d');
     var animId = null;
     var crackPoints = [];
-    for (var x = 80; x <= 460; x += 15) {
+    for (var x = 80; x <= 460; x += 14) {
       crackPoints.push({
         x: x,
-        y: 190 + Math.sin(x * 0.05) * 25 + (Math.random() - 0.5) * 10,
+        y: 190 + Math.sin(x * 0.045) * 32 + ((x % 28 === 0) ? 14 : -10),
         welded: false
       });
     }
+
+    var clamps = [
+      { x: 140, y: 310, locked: false, label: 'CLAMP #1' },
+      { x: 380, y: 310, locked: false, label: 'CLAMP #2' }
+    ];
 
     var torchPos = { x: 80, y: 190 };
     var isWelding = false;
@@ -443,8 +495,14 @@ window.RTM.Tasks = (function () {
     }
 
     function onMouseDown(e) {
-      isWelding = true;
       updateTorch(e);
+      clamps.forEach(function (c) {
+        if (Math.hypot(torchPos.x - c.x, torchPos.y - c.y) < 30) {
+          c.locked = true;
+          if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('hit', 0.5);
+        }
+      });
+      isWelding = true;
     }
 
     function onMouseUp() {
@@ -463,17 +521,17 @@ window.RTM.Tasks = (function () {
     };
 
     function loop() {
-      ctx.fillStyle = '#1c1e28';
+      ctx.fillStyle = '#181b24';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Titanium bulkhead plates
-      ctx.strokeStyle = '#2b2f3e';
+      ctx.strokeStyle = '#2c3244';
       ctx.lineWidth = 4;
-      ctx.strokeRect(40, 30, 460, 320);
+      ctx.strokeRect(30, 25, 480, 330);
 
-      // Unwelded crack
-      ctx.strokeStyle = '#ef7d0d';
-      ctx.lineWidth = 6;
+      // Draw Unwelded Crack
+      ctx.strokeStyle = '#ef440d';
+      ctx.lineWidth = 5;
       ctx.beginPath();
       crackPoints.forEach(function (pt, idx) {
         if (idx === 0) ctx.moveTo(pt.x, pt.y);
@@ -481,23 +539,24 @@ window.RTM.Tasks = (function () {
       });
       ctx.stroke();
 
-      // Check weld near torch
+      // Check Welding Proximity
       var weldedCount = 0;
       crackPoints.forEach(function (pt) {
-        if (isWelding && Math.hypot(torchPos.x - pt.x, torchPos.y - pt.y) < 25) {
+        if (isWelding && Math.hypot(torchPos.x - pt.x, torchPos.y - pt.y) < 26) {
           pt.welded = true;
           sparks.push({
             x: pt.x, y: pt.y,
-            vx: (Math.random() - 0.5) * 12, vy: (Math.random() - 0.5) * 12,
-            color: Math.random() > 0.5 ? '#38fedc' : '#ffffff',
-            life: 15
+            vx: (Math.random() - 0.5) * 14,
+            vy: (Math.random() - 0.5) * 14,
+            color: Math.random() > 0.4 ? '#38fedc' : '#ffffff',
+            life: 14
           });
         }
         if (pt.welded) weldedCount++;
       });
 
-      // Welded silver bead
-      ctx.strokeStyle = '#d6e0f0';
+      // Welded Bead
+      ctx.strokeStyle = '#d9e2ec';
       ctx.fillStyle = '#ffffff';
       ctx.lineWidth = 8;
       crackPoints.forEach(function (pt) {
@@ -506,6 +565,19 @@ window.RTM.Tasks = (function () {
           ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
           ctx.fill();
         }
+      });
+
+      // Cargo Clamps
+      clamps.forEach(function (c) {
+        ctx.fillStyle = c.locked ? '#50ef39' : '#e63946';
+        ctx.fillRect(c.x - 30, c.y - 12, 60, 24);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(c.x - 30, c.y - 12, 60, 24);
+        ctx.fillStyle = '#0b0d12';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(c.locked ? 'LOCKED' : 'CLICK CLAMP', c.x, c.y + 4);
       });
 
       // Sparks
@@ -517,10 +589,10 @@ window.RTM.Tasks = (function () {
         if (s.life <= 0) sparks.splice(sp, 1);
       }
 
-      // Plasma Torch Tip
+      // Plasma Torch
       ctx.fillStyle = isWelding ? '#38fedc' : '#778899';
       ctx.beginPath();
-      ctx.arc(torchPos.x, torchPos.y, 9, 0, Math.PI * 2);
+      ctx.arc(torchPos.x, torchPos.y, 8, 0, Math.PI * 2);
       ctx.fill();
       if (isWelding) {
         ctx.fillStyle = '#ffffff';
@@ -530,13 +602,15 @@ window.RTM.Tasks = (function () {
       }
 
       var progress = weldedCount / crackPoints.length;
-      if (progress >= 0.95 && !finished) {
+      var clampsDone = clamps.every(function (c) { return c.locked; });
+
+      if (progress >= 0.95 && clampsDone && !finished) {
         finished = true;
         ctx.fillStyle = '#50ef39';
         ctx.font = 'bold 22px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('🛡️ HULL INTEGRITY RESTORED! (+20% HULL)', canvas.width / 2, 50);
-        setTimeout(onComplete, 800);
+        ctx.fillText('🛡️ HULL WELDED & SECURED! (+20% HULL, -15KG)', canvas.width / 2, 50);
+        setTimeout(onComplete, 850);
         return;
       }
 
@@ -551,8 +625,8 @@ window.RTM.Tasks = (function () {
   function runCommsDishGame(canvas, onComplete) {
     var ctx = canvas.getContext('2d');
     var animId = null;
-    var targetAngle = Math.PI * 0.75;
-    var currentAngle = Math.PI * 0.2;
+    var targetAngle = Math.PI * 0.72;
+    var currentAngle = Math.PI * 0.15;
     var isDragging = false;
     var finished = false;
 
@@ -582,52 +656,73 @@ window.RTM.Tasks = (function () {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       var diff = Math.abs(currentAngle - targetAngle);
-      var signalStrength = Math.max(0, 1 - diff / (Math.PI * 0.5));
+      var signalStrength = Math.max(0, 1 - diff / (Math.PI * 0.45));
 
       // Signal Strength Bar
-      ctx.fillStyle = '#333344';
-      ctx.fillRect(100, 40, 340, 24);
+      ctx.fillStyle = '#222838';
+      ctx.fillRect(90, 35, 360, 24);
       ctx.fillStyle = signalStrength > 0.92 ? '#50ef39' : '#f5f557';
-      ctx.fillRect(100, 40, 340 * signalStrength, 24);
+      ctx.fillRect(90, 35, 360 * signalStrength, 24);
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 16px monospace';
+      ctx.font = 'bold 15px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('SIGNAL LOCK: ' + Math.round(signalStrength * 100) + '%', canvas.width / 2, 58);
+      ctx.fillText('DSN CARRIER LOCK: ' + Math.round(signalStrength * 100) + '%', canvas.width / 2, 52);
 
-      // Dish Base & Pedestal
+      // Oscilloscope Sine Wave Comparison
+      ctx.strokeStyle = 'rgba(56, 254, 220, 0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (var ox = 90; ox <= 450; ox += 4) {
+        var targetSine = 110 + Math.sin(ox * 0.08 + Date.now() * 0.006) * 18;
+        if (ox === 90) ctx.moveTo(ox, targetSine);
+        else ctx.lineTo(ox, targetSine);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = signalStrength > 0.92 ? '#50ef39' : '#ef7d0d';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (var sx = 90; sx <= 450; sx += 4) {
+        var userSine = 110 + Math.sin(sx * (0.04 + signalStrength * 0.04) + Date.now() * 0.006) * (18 * signalStrength);
+        if (sx === 90) ctx.moveTo(sx, userSine);
+        else ctx.lineTo(sx, userSine);
+      }
+      ctx.stroke();
+
+      // Satellite Dish Pedestal
       ctx.fillStyle = '#445566';
-      ctx.fillRect(250, 220, 40, 80);
+      ctx.fillRect(250, 230, 40, 80);
       ctx.fillStyle = '#223344';
-      ctx.fillRect(230, 290, 80, 20);
+      ctx.fillRect(220, 300, 100, 22);
 
-      // Rotating Dish Arc
+      // Rotating Parabolic Dish
       ctx.save();
-      ctx.translate(270, 220);
+      ctx.translate(270, 230);
       ctx.rotate(currentAngle);
 
       ctx.strokeStyle = '#d6e0f0';
-      ctx.lineWidth = 12;
+      ctx.lineWidth = 14;
       ctx.beginPath();
       ctx.arc(0, 0, 80, -Math.PI * 0.35, Math.PI * 0.35);
       ctx.stroke();
 
-      // Antenna feed horn
-      ctx.strokeStyle = '#ef7d0d';
+      // Feed horn
+      ctx.strokeStyle = '#38fedc';
       ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(55, 0);
+      ctx.lineTo(60, 0);
       ctx.stroke();
       ctx.restore();
 
-      if (signalStrength > 0.95 && !finished) {
+      if (signalStrength > 0.94 && !finished) {
         finished = true;
         ctx.fillStyle = '#50ef39';
         ctx.font = 'bold 22px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('📡 DSN LINK ESTABLISHED! (+30 SCIENCE)', canvas.width / 2, 350);
-        setTimeout(onComplete, 800);
+        ctx.fillText('📡 DSN LINK ESTABLISHED! (+30 SCIENCE)', canvas.width / 2, 355);
+        setTimeout(onComplete, 850);
         return;
       }
 
@@ -644,9 +739,10 @@ window.RTM.Tasks = (function () {
     var animId = null;
     var radarAngle = 0;
     var targets = [
-      { x: 190, y: 150, locked: false },
-      { x: 340, y: 170, locked: false },
-      { x: 260, y: 280, locked: false }
+      { x: 180, y: 140, vx: 0.4, vy: 0.3, locked: false },
+      { x: 350, y: 160, vx: -0.3, vy: 0.5, locked: false },
+      { x: 230, y: 270, vx: 0.5, vy: -0.4, locked: false },
+      { x: 340, y: 280, vx: -0.4, vy: -0.3, locked: false }
     ];
     var finished = false;
 
@@ -656,9 +752,9 @@ window.RTM.Tasks = (function () {
       var my = (e.clientY - rect.top) * (canvas.height / rect.height);
 
       targets.forEach(function (t) {
-        if (Math.hypot(mx - t.x, my - t.y) < 25) {
+        if (Math.hypot(mx - t.x, my - t.y) < 28 && !t.locked) {
           t.locked = true;
-          if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('hit');
+          if (RTM.Audio && RTM.Audio.play) RTM.Audio.play('hit', 0.6);
         }
       });
     }
@@ -671,58 +767,71 @@ window.RTM.Tasks = (function () {
     };
 
     function loop() {
-      ctx.fillStyle = '#06180c';
+      ctx.fillStyle = '#06160a';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Radar Circular Grid
       var cx = canvas.width / 2;
       var cy = canvas.height / 2;
-      ctx.strokeStyle = '#1b5e20';
+
+      // Polar Radar Rings
+      ctx.strokeStyle = '#155724';
       ctx.lineWidth = 2;
-      [50, 100, 150].forEach(function (r) {
+      [45, 95, 145].forEach(function (r) {
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.stroke();
       });
 
-      // Axis crosshairs
       ctx.beginPath();
-      ctx.moveTo(cx - 160, cy); ctx.lineTo(cx + 160, cy);
-      ctx.moveTo(cx, cy - 160); ctx.lineTo(cx, cy + 160);
+      ctx.moveTo(cx - 155, cy); ctx.lineTo(cx + 155, cy);
+      ctx.moveTo(cx, cy - 155); ctx.lineTo(cx, cy + 155);
       ctx.stroke();
 
-      // Sweeper Beam
-      radarAngle += 0.04;
+      // Phosphor Sweeper Beam
+      radarAngle += 0.045;
       ctx.strokeStyle = '#50ef39';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(radarAngle) * 165, cy + Math.sin(radarAngle) * 165);
+      ctx.lineTo(cx + Math.cos(radarAngle) * 155, cy + Math.sin(radarAngle) * 155);
       ctx.stroke();
 
-      // Targets
+      // Moving Targets
       var lockedCount = 0;
       targets.forEach(function (t) {
-        ctx.fillStyle = t.locked ? '#50ef39' : '#f5f557';
+        if (!t.locked) {
+          t.x += t.vx;
+          t.y += t.vy;
+          if (Math.hypot(t.x - cx, t.y - cy) > 140) {
+            t.vx = -t.vx;
+            t.vy = -t.vy;
+          }
+        } else {
+          lockedCount++;
+        }
+
+        ctx.fillStyle = t.locked ? '#50ef39' : '#ff3344';
         ctx.beginPath();
-        ctx.arc(t.x, t.y, t.locked ? 10 : 8, 0, Math.PI * 2);
+        ctx.arc(t.x, t.y, t.locked ? 9 : 7, 0, Math.PI * 2);
         ctx.fill();
 
-        if (t.locked) {
-          lockedCount++;
-          ctx.strokeStyle = '#50ef39';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(t.x - 14, t.y - 14, 28, 28);
-        }
+        ctx.strokeStyle = t.locked ? '#50ef39' : '#ff7788';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(t.x - 14, t.y - 14, 28, 28);
       });
 
-      if (lockedCount === 3 && !finished) {
+      // HUD Text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('CLICK 4 DETECTED ASTEROID VECTORS (' + lockedCount + '/4 LOCKED)', canvas.width / 2, 40);
+
+      if (lockedCount === 4 && !finished) {
         finished = true;
         ctx.fillStyle = '#50ef39';
         ctx.font = 'bold 22px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('🧭 VECTOR LOCKED! (+5% PROGRESS)', canvas.width / 2, 40);
-        setTimeout(onComplete, 800);
+        ctx.fillText('🧭 NAVIGATION VECTOR LOCKED! (+8% MARS PROGRESS)', canvas.width / 2, cy);
+        setTimeout(onComplete, 850);
         return;
       }
 

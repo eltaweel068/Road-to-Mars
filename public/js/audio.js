@@ -14,7 +14,9 @@ window.RTM.Audio = (function () {
     pullup:      '/assets/sounds/pullup.ogg',
     bang:        '/assets/sounds/bang.ogg',
     lockondone:  '/assets/sounds/lockondone.ogg',
-    voice_start: '/assets/sounds/voice_start_a.ogg'
+    voice_start: '/assets/sounds/voice_start_a.ogg',
+    hit:         '/assets/sounds/hit.ogg',
+    laser:       '/assets/sounds/MGLAUNCH.ogg'
   };
 
   /* ─── active sounds tracking ─── */

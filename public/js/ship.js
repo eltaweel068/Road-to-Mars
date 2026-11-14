@@ -293,7 +293,7 @@ window.RTM.Ship = (function () {
     if (!player || !player.alive) return;
     var station = RTM.Renderer.getTaskStationAt(localX, localY);
     if (station) {
-      if (RTM.Tasks && RTM.Tasks.open) RTM.Tasks.open(station);
+      if (RTM.Tasks && RTM.Tasks.open) RTM.Tasks.open(station.id || station);
       return;
     }
     if (RTM.Renderer.isNearEmergencyButton(localX, localY)) {
