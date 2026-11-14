@@ -91,7 +91,18 @@ const SCIENCE_PAYLOADS = Object.freeze({
   heavy: { mass: 340, science: 380 },
 });
 
-const TASK_IDS = Object.freeze(["wires", "o2_filter", "nav", "cargo", "science"]);
+const TASK_IDS = Object.freeze([
+  "wires",
+  "o2_filter",
+  "nav",
+  "cargo",
+  "science",
+  "cheese_grill",
+  "reactor_cool",
+  "shields_prime",
+  "engine_align",
+  "medbay_scan",
+]);
 const TASK_ID_SET = new Set(TASK_IDS);
 
 const MOON_CHEESE_NODES = [
@@ -730,8 +741,21 @@ function applyTask(room, player, taskId, byBot = false) {
     telemetry.payloadMass = Math.max(0, telemetry.payloadMass - 15);
   } else if (taskId === "science") {
     telemetry.science += 30;
+  } else if (taskId === "cheese_grill") {
+    telemetry.food = clamp(telemetry.food + 18, 0, 100);
+    telemetry.starving = false;
+  } else if (taskId === "reactor_cool") {
+    telemetry.fuel = clamp(telemetry.fuel + 18, 0, 100);
+  } else if (taskId === "shields_prime") {
+    telemetry.hull = clamp((telemetry.hull ?? 100) + 22, 0, 100);
+  } else if (taskId === "engine_align") {
+    telemetry.marsProgress = clamp(telemetry.marsProgress + 10, 0, 100);
+    telemetry.fuel = clamp(telemetry.fuel + 6, 0, 100);
+  } else if (taskId === "medbay_scan") {
+    telemetry.o2 = clamp(telemetry.o2 + 15, 0, 100);
+    telemetry.science += 25;
   }
-  room.taskState.progress = Math.min(100, room.taskState.progress + 20);
+  room.taskState.progress = Math.min(100, room.taskState.progress + 10);
   room.taskState.completions += 1;
   room.taskState.byTask[taskId] = (room.taskState.byTask[taskId] ?? 0) + 1;
   recomputeTelemetry(room);

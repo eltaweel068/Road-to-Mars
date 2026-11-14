@@ -901,8 +901,8 @@ select {
 }
 
 .task-panel {
-  width: min(640px, 95vw);
-  height: min(560px, 94vh);
+  width: min(640px, 94vw);
+  height: min(560px, 92vh);
   max-width: 640px;
   max-height: 560px;
   position: relative;
@@ -910,14 +910,16 @@ select {
   border: 4px solid #000;
   border-radius: 16px;
   box-shadow: 0 8px 0 #000;
-  padding: 16px 20px 14px;
-  overflow: hidden;
+  padding: 14px 18px 12px;
+  overflow: hidden !important;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .task-panel.au-panel {
-  padding: 16px 20px 14px;
+  padding: 14px 18px 12px;
+  overflow: hidden !important;
 }
 
 .task-close {
@@ -952,11 +954,13 @@ select {
 .task-content {
   width: 100%;
   height: 100%;
+  min-height: 0;
+  min-width: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  overflow: hidden;
+  gap: 6px;
+  overflow: hidden !important;
 }
 
 /* ============================================================
@@ -1395,12 +1399,15 @@ button:disabled {
 .task-content {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  overflow: hidden;
+  gap: 6px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden !important;
 }
 
 .task-header {
   padding-right: 42px;
+  flex-shrink: 0;
 }
 
 .task-eyebrow {
@@ -1408,31 +1415,36 @@ button:disabled {
   font-size: 10px;
   letter-spacing: 3px;
   color: #f5f557;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 
 .task-title {
-  font-size: 22px;
+  font-size: 20px;
   letter-spacing: 2px;
   color: #fff;
+  margin: 0;
 }
 
 .task-instruction {
-  font-size: 12px;
+  font-size: 11px;
   color: #bbb;
-  line-height: 1.4;
+  line-height: 1.3;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .task-stage {
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
   padding: 0;
-  overflow: hidden;
+  overflow: hidden !important;
+  position: relative;
 }
 
 .task-feedback {
@@ -1442,6 +1454,7 @@ button:disabled {
   text-align: center;
   letter-spacing: 1px;
   color: #aaa;
+  flex-shrink: 0;
 }
 
 .task-feedback-success { color: #5cb85c; }
@@ -2829,15 +2842,20 @@ body.cockpit-open #actionButtons {
 /* Task Canvas */
 #taskCanvas {
   display: block;
-  margin: 0 auto;
+  margin: auto;
   max-width: 100%;
   max-height: 100%;
+  width: auto;
+  height: auto;
+  aspect-ratio: 540 / 380;
   box-sizing: border-box;
   object-fit: contain;
   cursor: crosshair;
   border-radius: 12px;
   border: 3px solid #000;
   box-shadow: 0 6px 0 #000;
+  user-select: none;
+  touch-action: none;
 }
 
 /* ============================================================
@@ -2985,6 +3003,11 @@ body.cockpit-open #actionButtons {
   color: #f5a623;
 }
 
+.badge-spacecraft {
+  background: #2a4436;
+  color: #5cb85c;
+}
+
 .card-size {
   font-size: 10px;
   color: #7a8fa6;
@@ -3110,4 +3133,21 @@ body.cockpit-open #actionButtons {
 .archive-mission {
   font-size: 11px;
   color: #7b8ea6;
+}
+
+.archive-scale-badge {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  background: rgba(14, 25, 42, 0.92);
+  border: 2px solid #38fedc;
+  border-radius: 8px;
+  color: #38fedc;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 6px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+  pointer-events: none;
 }

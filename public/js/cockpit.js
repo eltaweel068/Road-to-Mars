@@ -129,6 +129,10 @@ window.RTM.Cockpit = (function () {
 
   var nasaGeometryCache = {};
   var activeLasers = [];
+  var activeMissiles = [];
+  var lastMissileFireTime = 0;
+  var MISSILE_COOLDOWN = 3000;
+  var missileMaterial = null;
   var activeObstacles = [];
   var explosionParticles = [];
   var obstaclesClearedCount = 0;
@@ -241,6 +245,73 @@ window.RTM.Cockpit = (function () {
     // Camera subtle recoil
     if (camera) {
       camera.position.z += 0.35;
+    }
+  }
+
+  function fireHomingMissile() {
+    if (!shipGroup || !open) return;
+    var now = performance.now();
+    if (now - lastMissileFireTime < MISSILE_COOLDOWN) return;
+    lastMissileFireTime = now;
+
+    if (RTM.Audio) {
+      if (!RTM.Audio.play('missile', 0.8)) {
+        RTM.Audio.play('bang', 0.8);
+      }
+    }
+
+    // Find best target ahead of ship
+    var forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion).normalize();
+    var shipPos = shipGroup.position;
+    var bestTarget = null;
+    var bestScore = -Infinity;
+
+    for (var o = 0; o < activeObstacles.length; o++) {
+      var obst = activeObstacles[o];
+      var toObst = obst.position.clone().sub(shipPos);
+      var dist = toObst.length();
+      if (dist > 650 || dist < 10) continue;
+      toObst.normalize();
+      var dot = forwardDir.dot(toObst);
+      if (dot > 0.35) {
+        var score = dot * 1000 - dist;
+        if (score > bestScore) {
+          bestScore = score;
+          bestTarget = obst;
+        }
+      }
+    }
+
+    var geo = new THREE.CylinderGeometry(0.35, 0.45, 4.2, 8);
+    geo.rotateX(Math.PI / 2);
+    if (!missileMaterial) {
+      missileMaterial = new THREE.MeshStandardMaterial({
+        color: 0xeeeeee,
+        roughness: 0.3,
+        metalness: 0.8,
+        emissive: 0xff4400,
+        emissiveIntensity: 0.8
+      });
+    }
+    var missile = new THREE.Mesh(geo, missileMaterial);
+    var spawnLocal = new THREE.Vector3(0, -1.2, -3.0);
+    var spawnWorld = spawnLocal.applyMatrix4(shipGroup.matrixWorld);
+    missile.position.copy(spawnWorld);
+    missile.quaternion.copy(shipGroup.quaternion);
+
+    missile.userData = {
+      target: bestTarget,
+      velocity: forwardDir.clone().multiplyScalar(220),
+      speed: 220,
+      life: 5.0,
+      trailTimer: 0
+    };
+
+    scene.add(missile);
+    activeMissiles.push(missile);
+
+    if (camera) {
+      camera.position.z += 0.5;
     }
   }
 
@@ -530,6 +601,72 @@ window.RTM.Cockpit = (function () {
         }
       }
       if (laserRemoved) continue;
+    }
+
+    // 1b. Homing Space Missiles
+    for (var m = activeMissiles.length - 1; m >= 0; m--) {
+      var missile = activeMissiles[m];
+      missile.userData.life -= dt;
+      if (missile.userData.life <= 0) {
+        scene.remove(missile);
+        activeMissiles.splice(m, 1);
+        continue;
+      }
+
+      var target = missile.userData.target;
+      if (target && (target.parent || scene.children.indexOf(target) !== -1)) {
+        var toTarget = target.position.clone().sub(missile.position).normalize();
+        var currentDir = new THREE.Vector3(0, 0, -1).applyQuaternion(missile.quaternion);
+        currentDir.lerp(toTarget, Math.min(1.0, dt * 6.0)).normalize();
+        missile.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), currentDir);
+        missile.userData.velocity.copy(currentDir).multiplyScalar(missile.userData.speed);
+      }
+
+      var mStep = missile.userData.velocity.clone().multiplyScalar(dt);
+      missile.position.add(mStep);
+
+      missile.userData.trailTimer += dt;
+      if (missile.userData.trailTimer > 0.04) {
+        missile.userData.trailTimer = 0;
+        createExplosionParticles(missile.position, 1);
+      }
+
+      var missileHit = false;
+      for (var mo = activeObstacles.length - 1; mo >= 0; mo--) {
+        var mObst = activeObstacles[mo];
+        if (missile.position.distanceTo(mObst.position) < (mObst.userData.radius || 5.0) + 3.5) {
+          if (RTM.Audio) {
+            if (!RTM.Audio.play('explosion', 0.95)) {
+              RTM.Audio.play('bang', 0.95);
+            }
+          }
+          createExplosionParticles(mObst.position, 40);
+          spawnShockwaveRing(mObst.position);
+          spawnFragments(mObst);
+
+          if (RTM.Net) {
+            var sState = RTM.Net.getState();
+            sState.telemetry.science = (sState.telemetry.science || 0) + 15;
+            sState.telemetry.marsProgress = Math.min(100, (sState.telemetry.marsProgress || 0) + 3);
+            RTM.Net.emit('cockpit:obstacle:cleared');
+          }
+          showCockpitScanPopup(mObst.userData.meta);
+
+          if (mObst.parent) mObst.parent.remove(mObst);
+          else scene.remove(mObst);
+          activeObstacles.splice(mo, 1);
+          obstaclesClearedCount++;
+          if (obstaclesClearedCount >= 8) {
+            restoreAutopilot();
+          }
+
+          scene.remove(missile);
+          activeMissiles.splice(m, 1);
+          missileHit = true;
+          break;
+        }
+      }
+      if (missileHit) continue;
     }
 
     // 2. Continuous Spawning & Movement of Asteroids
@@ -1561,6 +1698,9 @@ window.RTM.Cockpit = (function () {
       throttle = clamp(throttle - dt * 0.62, 0, 1);
     }
     boost = !!(keysDown.KeyB);
+    if (keysDown.KeyG) {
+      fireHomingMissile();
+    }
 
     updateThrottleLabels();
     if (yawInput || pitchInput || rollInput || boost || keysDown.ShiftLeft || keysDown.ShiftRight || keysDown.ControlLeft || keysDown.ControlRight) {
@@ -1577,6 +1717,9 @@ window.RTM.Cockpit = (function () {
       if (event.button === 0) {
         pointerFiring = true;
         fireLaserCannons();
+      } else if (event.button === 2) {
+        event.preventDefault();
+        fireHomingMissile();
       }
       mouseActive = true;
       pointerX = event.clientX;
@@ -1584,6 +1727,9 @@ window.RTM.Cockpit = (function () {
       if (element.setPointerCapture) {
         try { element.setPointerCapture(event.pointerId); } catch (_) {}
       }
+    });
+    element.addEventListener('contextmenu', function (event) {
+      event.preventDefault();
     });
     element.addEventListener('pointermove', function (event) {
       if (!open || !mouseActive) return;

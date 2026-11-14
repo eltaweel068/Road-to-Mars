@@ -815,8 +815,21 @@ window.RTM.Net = (function () {
         t.payloadMass = Math.max(0, t.payloadMass - 15);
       } else if (taskId === 'science') {
         t.science += 30;
+      } else if (taskId === 'cheese_grill') {
+        t.food = Math.min(100, Math.max(0, t.food + 18));
+        t.starving = false;
+      } else if (taskId === 'reactor_cool') {
+        t.fuel = Math.min(100, Math.max(0, t.fuel + 18));
+      } else if (taskId === 'shields_prime') {
+        t.hull = Math.min(100, Math.max(0, (t.hull != null ? t.hull : 100) + 22));
+      } else if (taskId === 'engine_align') {
+        t.marsProgress = Math.min(100, Math.max(0, t.marsProgress + 10));
+        t.fuel = Math.min(100, Math.max(0, t.fuel + 6));
+      } else if (taskId === 'medbay_scan') {
+        t.o2 = Math.min(100, Math.max(0, t.o2 + 15));
+        t.science += 25;
       } else return;
-      state.tasks.progress = Math.min(100, state.tasks.progress + 20);
+      state.tasks.progress = Math.min(100, state.tasks.progress + 10);
       state.tasks.completions += 1;
       state.tasks.byTask[taskId] = (state.tasks.byTask[taskId] || 0) + 1;
       offline.recompute();

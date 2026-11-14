@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Road to Mars</title>
   <link rel="icon" type="image/png" href="/favicon.png">
-  <link rel="stylesheet" href="css/style.css?v=2.2">
+  <link rel="stylesheet" href="css/style.css?v=2.3">
 </head>
 <body>
 
@@ -276,8 +276,9 @@
         <div class="nasa-archive-body">
           <div class="archive-sidebar">
             <div class="archive-tabs">
-              <button class="archive-tab active" data-filter="all">ALL (14)</button>
+              <button class="archive-tab active" data-filter="all">ALL</button>
               <button class="archive-tab" data-filter="3d">3D MODELS</button>
+              <button class="archive-tab" data-filter="spacecraft">SPACECRAFT</button>
               <button class="archive-tab" data-filter="photo">PHOTOS</button>
             </div>
             <div class="archive-list" id="archiveItemList">
@@ -293,8 +294,11 @@
               <div class="archive-controls">
                 <button class="au-btn au-btn-gray archive-ctrl-btn" id="archiveWireframeBtn">WIREFRAME</button>
                 <button class="au-btn au-btn-gray archive-ctrl-btn" id="archiveRotateBtn">AUTO-ROTATE</button>
+                <button class="au-btn au-btn-gray archive-ctrl-btn" id="archiveThermalBtn">🌡️ THERMAL / SCAN</button>
+                <button class="au-btn au-btn-gray archive-ctrl-btn" id="archiveScaleBtn">🧑‍🚀 ASTRONAUT SCALE</button>
                 <button class="au-btn au-btn-gray archive-ctrl-btn" id="archiveResetCamBtn">RESET VIEW</button>
               </div>
+              <div id="archiveScaleBadge" class="archive-scale-badge" style="display:none;"></div>
             </div>
             <div class="archive-details" id="archiveDetails">
               <h3 id="archiveItemTitle">Title</h3>
@@ -336,19 +340,19 @@
   <script src="https://typpo.github.io/spacekit/build/spacekit.js"></script>
 
   <!-- Game modules (order matters) -->
-  <script src="js/net.js?v=2.2"></script>
-  <script src="js/audio.js?v=2.2"></script>
-  <script src="js/renderer.js?v=2.2"></script>
-  <script src="js/hud.js?v=2.2"></script>
-  <script src="js/lobby.js?v=2.2"></script>
-  <script src="js/ship.js?v=2.2"></script>
-  <script src="js/moon.js?v=2.2"></script>
-  <script src="js/cockpit.js?v=2.2"></script>
-  <script src="js/meeting.js?v=2.2"></script>
-  <script src="js/tasks.js?v=2.2"></script>
-  <script src="js/nasa-archive.js?v=2.2"></script>
-  <script src="js/debrief.js?v=2.2"></script>
-  <script src="js/main.js?v=2.2"></script>
+  <script src="js/net.js?v=2.3"></script>
+  <script src="js/audio.js?v=2.3"></script>
+  <script src="js/renderer.js?v=2.3"></script>
+  <script src="js/hud.js?v=2.3"></script>
+  <script src="js/lobby.js?v=2.3"></script>
+  <script src="js/ship.js?v=2.3"></script>
+  <script src="js/moon.js?v=2.3"></script>
+  <script src="js/cockpit.js?v=2.3"></script>
+  <script src="js/meeting.js?v=2.3"></script>
+  <script src="js/tasks.js?v=2.3"></script>
+  <script src="js/nasa-archive.js?v=2.3"></script>
+  <script src="js/debrief.js?v=2.3"></script>
+  <script src="js/main.js?v=2.3"></script>
 
 </body>
 </html>

@@ -13,10 +13,15 @@ window.RTM.Audio = (function () {
     overg:       '/assets/sounds/overg.ogg',
     pullup:      '/assets/sounds/pullup.ogg',
     bang:        '/assets/sounds/bang.ogg',
-    lockondone:  '/assets/sounds/lockondone.ogg',
+    lockondone:  '/3D-Airforce-Simulator/sounds/lockondone.ogg',
+    lockon:      '/3D-Airforce-Simulator/sounds/lockondone.ogg',
     voice_start: '/assets/sounds/voice_start_a.ogg',
-    hit:         '../../3D-Airforce-Simulator/sounds/hit.ogg',
-    laser:       '../../3D-Airforce-Simulator/sounds/MGLAUNCH.ogg'
+    hit:         '/3D-Airforce-Simulator/sounds/hit.ogg',
+    laser:       '/skyfall-assets/audio/cannon-burst.mp3',
+    missile:     '/skyfall-assets/audio/missile-launch.wav',
+    explosion:   '/skyfall-assets/audio/explosions.mp3',
+    afterburner: '/skyfall-assets/audio/jet-afterburner.mp3',
+    thruster:    '/skyfall-assets/audio/rocket-ignition.wav'
   };
 
   /* ─── active sounds tracking ─── */

@@ -11,13 +11,18 @@
   const WORLD_W = 3200;
   const WORLD_H = 2000;
 
-  // 10-Room Layout Stations
+  // 10-Room Layout Stations (All 10 Interactive Canvas Mini-Game Stations)
   const TASK_STATIONS = {
-    wires:     { x: 850,  y: 1350, room: 'Electrical' },
-    o2_filter: { x: 2250, y: 450,  room: 'O2' },
-    nav:       { x: 2640, y: 1040, room: 'Navigation' },
-    cargo:     { x: 1500, y: 1450, room: 'Storage' },
-    science:   { x: 850,  y: 450,  room: 'Lab' },
+    wires:         { x: 850,  y: 1350, room: 'Electrical', label: 'WIRES' },
+    o2_filter:     { x: 2250, y: 450,  room: 'O2 & Greenhouse', label: 'O2 FILTER' },
+    nav:           { x: 2640, y: 1040, room: 'Navigation', label: 'RADAR LOCK' },
+    cargo:         { x: 1500, y: 1450, room: 'Storage & Airlock', label: 'HULL WELD' },
+    science:       { x: 850,  y: 450,  room: 'Science Lab', label: 'DSN DISH' },
+    cheese_grill:  { x: 1820, y: 740,  room: 'Cafeteria Galley', label: 'GRILL ROMY CHEESE' },
+    reactor_cool:  { x: 380,  y: 650,  room: 'Upper Reactor', label: 'COOL REACTOR CORE' },
+    engine_align:  { x: 380,  y: 1420, room: 'Lower Engine', label: 'ALIGN THRUSTER' },
+    shields_prime: { x: 2560, y: 1560, room: 'Weapons & Shields', label: 'PRIME DEFLECTORS' },
+    medbay_scan:   { x: 1120, y: 620,  room: 'MedBay Lab', label: 'BIO-HEALTH SCAN' },
   };
 
   const EMERGENCY_BUTTON = { x: 1400, y: 800 };
@@ -863,6 +868,7 @@
     drawSprite(ctx, 'barrel', 1400, 680, 52, 52);
     drawSprite(ctx, 'wireless', 1580, 660, 52, 52);
     drawSprite(ctx, 'generator', 1580, 940, 54, 54);
+    _drawTaskStation(ctx, TASK_STATIONS.cheese_grill.x, TASK_STATIONS.cheese_grill.y, '#f39c12', 'GRILL CHEESE');
 
     // ── 2. Navigation / Cockpit (2520 to 2980, 750 to 1150) ──
     _drawRoom(ctx, 2520, 750, 460, 400, '#3f4f66', 'NAVIGATION');
@@ -899,6 +905,7 @@
     drawSprite(ctx, 'deskScreen', 2350, 1460, 72, 72);
     drawSprite(ctx, 'satellite', 2460, 1500, 76, 76);
     drawSprite(ctx, 'generator', 2240, 1500, 70, 70);
+    _drawTaskStation(ctx, TASK_STATIONS.shields_prime.x, TASK_STATIONS.shields_prime.y, '#1abc9c', 'DEFLECTORS');
 
     // ── 5. Storage & Cargo Airlock (1250 to 1750, 1250 to 1650) ──
     _drawRoom(ctx, 1250, 1250, 500, 400, '#594d3b', 'STORAGE & AIRLOCK');
@@ -927,6 +934,7 @@
     drawSprite(ctx, 'chair', 780, 500, 42, 42);
     drawSprite(ctx, 'chairArms', 950, 500, 44, 44);
     _drawTaskStation(ctx, TASK_STATIONS.science.x, TASK_STATIONS.science.y, '#9b59b6', 'SCANNER');
+    _drawTaskStation(ctx, TASK_STATIONS.medbay_scan.x, TASK_STATIONS.medbay_scan.y, '#2ecc71', 'BIO SCAN');
 
     // ── 8. Upper Reactor (120 to 480, 420 to 760) ──
     _drawRoom(ctx, 120, 420, 360, 340, '#30304a', 'UPPER REACTOR');
@@ -935,6 +943,7 @@
     drawSprite(ctx, 'pipeStraight', 280, 480, 64, 48);
     drawSprite(ctx, 'rocketBase', 190, 580, 68, 68);
     drawSprite(ctx, 'barrel', 390, 680, 52, 52);
+    _drawTaskStation(ctx, TASK_STATIONS.reactor_cool.x, TASK_STATIONS.reactor_cool.y, '#3498db', 'CRYO COOL');
 
     // ── 9. Lower Reactor (120 to 480, 1140 to 1480) ──
     _drawRoom(ctx, 120, 1140, 360, 340, '#30304a', 'LOWER REACTOR');
@@ -942,6 +951,7 @@
     drawSprite(ctx, 'generator', 190, 1400, 72, 72);
     drawSprite(ctx, 'rocketBase', 190, 1300, 68, 68);
     drawSprite(ctx, 'barrel', 390, 1400, 52, 52);
+    _drawTaskStation(ctx, TASK_STATIONS.engine_align.x, TASK_STATIONS.engine_align.y, '#e74c3c', 'ALIGN ENGINE');
 
     // ── 10. Security & Comms (450 to 750, 820 to 1080) ──
     _drawRoom(ctx, 450, 820, 300, 260, '#3a3a48', 'SECURITY');
@@ -1715,8 +1725,58 @@
       });
     }
 
-    // 2. Persistent Routine Ship Maintenance Waypoints (Priority 5)
+    // 2. Persistent Routine Ship Maintenance Waypoints (Priority 5-8)
     // Always active so astronauts always have guided tasks to complete
+    if (telemetry.food < 70 || telemetry.starving) {
+      objectives.push({
+        id: 'cheese_grill',
+        x: 1820, y: 740,
+        label: 'GALLEY: GRILL ROMY CHEESE (+18% FOOD)',
+        color: '#f39c12',
+        priority: 8
+      });
+    }
+
+    if (fuel < 70) {
+      objectives.push({
+        id: 'reactor_cool',
+        x: 380, y: 650,
+        label: 'UPPER REACTOR: CRYO COOLING (+18% FUEL)',
+        color: '#3498db',
+        priority: 7
+      });
+    }
+
+    if (hull < 80) {
+      objectives.push({
+        id: 'shields_prime',
+        x: 2560, y: 1560,
+        label: 'SHIELDS: PRIME DEFLECTORS (+22% HULL)',
+        color: '#1abc9c',
+        priority: 7
+      });
+    }
+
+    if (telemetry.marsProgress < 100) {
+      objectives.push({
+        id: 'engine_align',
+        x: 380, y: 1420,
+        label: 'LOWER ENGINE: ALIGN THRUSTER (+10% PROGRESS)',
+        color: '#e74c3c',
+        priority: 6
+      });
+    }
+
+    if (o2 < 80) {
+      objectives.push({
+        id: 'medbay_scan',
+        x: 1120, y: 620,
+        label: 'MEDBAY: BIO-HEALTH SCAN (+15% O2, +25 SCI)',
+        color: '#2ecc71',
+        priority: 6
+      });
+    }
+
     if (o2 >= 35) {
       objectives.push({
         id: 'o2_routine',
