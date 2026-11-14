@@ -15,8 +15,8 @@ window.RTM.Audio = (function () {
     bang:        '/assets/sounds/bang.ogg',
     lockondone:  '/assets/sounds/lockondone.ogg',
     voice_start: '/assets/sounds/voice_start_a.ogg',
-    hit:         '/assets/sounds/hit.ogg',
-    laser:       '/assets/sounds/MGLAUNCH.ogg'
+    hit:         '../../3D-Airforce-Simulator/sounds/hit.ogg',
+    laser:       '../../3D-Airforce-Simulator/sounds/MGLAUNCH.ogg'
   };
 
   /* ─── active sounds tracking ─── */

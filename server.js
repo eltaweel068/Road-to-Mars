@@ -1,4 +1,5 @@
 import http from "node:http";
+import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -119,10 +120,11 @@ app.use(
   }),
 );
 app.use(express.static(path.join(__dirname, "public")));
-app.use("/nasa-models", express.static(path.join(__dirname, "public", "nasa-models")));
-app.use("/nasa-models", express.static(path.join(__dirname, "..", "nasa models")));
 app.use("/assets", express.static(path.join(__dirname, "public", "assets")));
 app.use("/assets", express.static(path.join(__dirname, "..", "assets")));
+app.use("/nasa-models", express.static(path.join(__dirname, "public", "nasa-models")));
+app.use("/nasa-models", express.static(path.join(__dirname, "..", "nasa models")));
+app.use("/skyfall-assets", express.static(path.join(__dirname, "..", "skyfall", "public", "assets")));
 app.use("/3D-Airforce-Simulator", express.static(path.join(__dirname, "..", "3D-Airforce-Simulator")));
 app.use("/space-3d", express.static(path.join(__dirname, "..", "space-3d")));
 
@@ -721,11 +723,11 @@ function applyTask(room, player, taskId, byBot = false) {
   } else if (taskId === "o2_filter") {
     telemetry.o2 = clamp(telemetry.o2 + 20, 0, 100);
   } else if (taskId === "nav") {
-    telemetry.marsProgress = clamp(telemetry.marsProgress + 5, 0, 100);
+    telemetry.marsProgress = clamp(telemetry.marsProgress + 8, 0, 100);
     telemetry.autopilot = true;
   } else if (taskId === "cargo") {
+    telemetry.hull = clamp((telemetry.hull ?? 100) + 20, 0, 100);
     telemetry.payloadMass = Math.max(0, telemetry.payloadMass - 15);
-    telemetry.hull = clamp(telemetry.hull + 20, 0, 100);
   } else if (taskId === "science") {
     telemetry.science += 30;
   }
@@ -1969,7 +1971,7 @@ function connectSocket(socket) {
   handle("cockpit:obstacle:hit", () => {
     const room = rooms.get(socket.data.roomId);
     if (!room || room.phase !== "playing") return;
-    room.telemetry.hull = Math.max(0, room.telemetry.hull - 8);
+    room.telemetry.hull = clamp((room.telemetry.hull ?? 100) - 5, 0, 100);
     recomputeTelemetry(room);
     emitTelemetry(room);
     const win = computeWin(room);
@@ -1980,6 +1982,7 @@ function connectSocket(socket) {
     const room = rooms.get(socket.data.roomId);
     if (!room || room.phase !== "playing") return;
     room.telemetry.science += 10;
+    room.telemetry.marsProgress = clamp(room.telemetry.marsProgress + 2, 0, 100);
     recomputeTelemetry(room);
     emitTelemetry(room);
   });
@@ -1988,7 +1991,7 @@ function connectSocket(socket) {
     const room = rooms.get(socket.data.roomId);
     if (!room || room.phase !== "playing") return;
     room.telemetry.autopilot = true;
-    room.telemetry.marsProgress = Math.min(100, room.telemetry.marsProgress + 10);
+    room.telemetry.marsProgress = clamp(room.telemetry.marsProgress + 10, 0, 100);
     recomputeTelemetry(room);
     emitTelemetry(room);
   });
@@ -2296,6 +2299,32 @@ app.get("/rooms/:roomId", (req, res) => {
     return;
   }
   res.json(publicRoom(room));
+});
+
+app.get("/api/nasa-files", (req, res) => {
+  try {
+    const nasaDir = path.join(__dirname, "..", "nasa models");
+    if (!fs.existsSync(nasaDir)) {
+      return res.json({ files: [] });
+    }
+    const files = fs.readdirSync(nasaDir);
+    const validExts = new Set([".stl", ".glb", ".gltf", ".obj", ".jpg", ".png"]);
+    const nasaFiles = files
+      .filter((file) => validExts.has(path.extname(file).toLowerCase()))
+      .map((file) => {
+        const stats = fs.statSync(path.join(nasaDir, file));
+        return {
+          filename: file,
+          name: path.parse(file).name,
+          ext: path.extname(file).toLowerCase().replace(".", ""),
+          size: stats.size,
+          path: `/nasa-models/${encodeURIComponent(file)}`,
+        };
+      });
+    res.json({ files: nasaFiles });
+  } catch (err) {
+    res.status(500).json({ error: err.message, files: [] });
+  }
 });
 
 server.listen(PORT, () => {

@@ -174,6 +174,13 @@
     craterSmall:  '/assets/kenney_space-kit/Isometric/crater_SE.png',
     crystals:     '/assets/kenney_space-kit/Isometric/rock_crystalsLargeA_SE.png',
     astronaut:    '/assets/kenney_space-kit/Isometric/astronautA_SE.png',
+    glassDome:    '/assets/kenney_space-kit/Isometric/hangar_roundGlass_SE.png',
+    pipeStraight: '/assets/kenney_space-kit/Isometric/pipe_straight_SE.png',
+    pipeCorner:   '/assets/kenney_space-kit/Isometric/pipe_cornerRound_SE.png',
+    trainCargo:   '/assets/kenney_space-kit/Isometric/monorail_trainCargo_SE.png',
+    turretDouble: '/assets/kenney_space-kit/Isometric/turret_double_SE.png',
+    rocketTop:    '/assets/kenney_space-kit/Isometric/rocket_topA_SE.png',
+    rocketBase:   '/assets/kenney_space-kit/Isometric/rocket_baseA_SE.png',
   };
 
   function trimSprite(img) {
@@ -546,6 +553,243 @@
     ctx.restore();
   }
 
+  // ── Ship Doors & Automatic Airlocks ──────────────────────────
+  const SHIP_DOORS = [
+    { id: 'cafe_w',  x: 1152, y: 780,  w: 16, h: 80,  vertical: true,  open: 0 },
+    { id: 'cafe_e',  x: 1640, y: 780,  w: 16, h: 80,  vertical: true,  open: 0 },
+    { id: 'cafe_n',  x: 1380, y: 592,  w: 80, h: 16,  vertical: false, open: 0 },
+    { id: 'cafe_s',  x: 1380, y: 1000, w: 80, h: 16,  vertical: false, open: 0 },
+    { id: 'nav_w',   x: 2512, y: 910,  w: 16, h: 80,  vertical: true,  open: 0 },
+    { id: 'green_s', x: 2210, y: 620,  w: 80, h: 16,  vertical: false, open: 0 },
+    { id: 'weap_n',  x: 2310, y: 1272, w: 80, h: 16,  vertical: false, open: 0 },
+    { id: 'stor_n',  x: 1460, y: 1242, w: 80, h: 16,  vertical: false, open: 0 },
+    { id: 'elec_n',  x: 810,  y: 1172, w: 80, h: 16,  vertical: false, open: 0 },
+    { id: 'med_s',   x: 810,  y: 620,  w: 80, h: 16,  vertical: false, open: 0 },
+    { id: 'reac_u',  x: 480,  y: 540,  w: 16, h: 100, vertical: true,  open: 0 },
+    { id: 'reac_l',  x: 480,  y: 1260, w: 16, h: 100, vertical: true,  open: 0 },
+    { id: 'sec_w',   x: 442,  y: 900,  w: 16, h: 100, vertical: true,  open: 0 },
+    { id: 'sec_e',   x: 750,  y: 900,  w: 16, h: 100, vertical: true,  open: 0 },
+  ];
+
+  function drawSlidingDoors(ctx, players) {
+    const playerList = players ? Object.values(players) : [];
+    SHIP_DOORS.forEach(function (door) {
+      const cx = door.x + door.w / 2;
+      const cy = door.y + door.h / 2;
+      let near = false;
+      for (let i = 0; i < playerList.length; i++) {
+        const p = playerList[i];
+        if (p && dist(p.x, p.y, cx, cy) < 110) {
+          near = true;
+          break;
+        }
+      }
+      door.open = near ? Math.min(1, door.open + 0.15) : Math.max(0, door.open - 0.08);
+
+      // Frame
+      ctx.fillStyle = '#10131a';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(door.x, door.y, door.w, door.h);
+      ctx.fillRect(door.x, door.y, door.w, door.h);
+
+      // Indicator light
+      ctx.fillStyle = door.open > 0.4 ? '#38fedc' : '#ef7d0d';
+      if (door.vertical) {
+        ctx.fillRect(door.x + 5, door.y - 6, 6, 5);
+      } else {
+        ctx.fillRect(door.x - 6, door.y + 5, 5, 6);
+      }
+
+      // Sliding leaves
+      ctx.save();
+      ctx.fillStyle = '#445168';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      if (door.vertical) {
+        const halfH = door.h / 2;
+        const slide = halfH * door.open * 0.85;
+        // Top leaf
+        ctx.fillRect(door.x + 2, door.y + 2 - slide, door.w - 4, halfH - 2);
+        ctx.strokeRect(door.x + 2, door.y + 2 - slide, door.w - 4, halfH - 2);
+        // Bottom leaf
+        ctx.fillRect(door.x + 2, door.y + halfH + slide, door.w - 4, halfH - 2);
+        ctx.strokeRect(door.x + 2, door.y + halfH + slide, door.w - 4, halfH - 2);
+      } else {
+        const halfW = door.w / 2;
+        const slide = halfW * door.open * 0.85;
+        // Left leaf
+        ctx.fillRect(door.x + 2 - slide, door.y + 2, halfW - 2, door.h - 4);
+        ctx.strokeRect(door.x + 2 - slide, door.y + 2, halfW - 2, door.h - 4);
+        // Right leaf
+        ctx.fillRect(door.x + halfW + slide, door.y + 2, halfW - 2, door.h - 4);
+        ctx.strokeRect(door.x + halfW + slide, door.y + 2, halfW - 2, door.h - 4);
+      }
+      ctx.restore();
+    });
+  }
+
+  // ── Exterior Spaceship Hull Silhouette & Thrusters ───────────
+  function drawExteriorHullSilhouette(ctx) {
+    ctx.save();
+
+    // 1. Exterior Armored Hull Silhouette
+    ctx.fillStyle = '#222534';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(3160, 930);
+    ctx.lineTo(3240, 950);
+    ctx.lineTo(3160, 970);
+    ctx.lineTo(2980, 1180);
+    ctx.lineTo(2560, 1680);
+    ctx.lineTo(1760, 1720);
+    ctx.lineTo(1240, 1720);
+    ctx.lineTo(640, 1600);
+    ctx.lineTo(110, 1540);
+    ctx.lineTo(110, 380);
+    ctx.lineTo(640, 200);
+    ctx.lineTo(1240, 200);
+    ctx.lineTo(1760, 200);
+    ctx.lineTo(2560, 240);
+    ctx.lineTo(2980, 720);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 2. High-Tech Forward Nose Cone & Sensor Dome
+    var noseGrad = ctx.createLinearGradient(2980, 950, 3240, 950);
+    noseGrad.addColorStop(0, '#2e3549');
+    noseGrad.addColorStop(0.7, '#3d4660');
+    noseGrad.addColorStop(1, '#1b202c');
+    ctx.fillStyle = noseGrad;
+    ctx.beginPath();
+    ctx.moveTo(2980, 730);
+    ctx.lineTo(3180, 900);
+    ctx.lineTo(3240, 950);
+    ctx.lineTo(3180, 1000);
+    ctx.lineTo(2980, 1170);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Forward radar & LiDAR array
+    ctx.fillStyle = '#38fedc';
+    ctx.shadowColor = '#38fedc';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(3234, 950, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // 3. North & South Solar Wings (Giant Gridded Arrays)
+    // North Truss & Array (x: 1300..2100, y: 20..120)
+    ctx.fillStyle = '#1c202d';
+    ctx.fillRect(1660, 80, 80, 120);
+    ctx.strokeRect(1660, 80, 80, 120);
+    var nArrayGrad = ctx.createLinearGradient(1300, 20, 1300, 120);
+    nArrayGrad.addColorStop(0, '#0c223c');
+    nArrayGrad.addColorStop(1, '#14365f');
+    ctx.fillStyle = nArrayGrad;
+    ctx.fillRect(1300, 20, 800, 100);
+    ctx.strokeRect(1300, 20, 800, 100);
+    ctx.strokeStyle = '#2b78c9';
+    ctx.lineWidth = 1;
+    for (var sx = 1320; sx < 2100; sx += 40) {
+      ctx.beginPath();
+      ctx.moveTo(sx, 20);
+      ctx.lineTo(sx, 120);
+      ctx.stroke();
+    }
+    for (var sy = 40; sy < 120; sy += 25) {
+      ctx.beginPath();
+      ctx.moveTo(1300, sy);
+      ctx.lineTo(2100, sy);
+      ctx.stroke();
+    }
+
+    // South Truss & Array (x: 1300..2100, y: 1800..1900)
+    ctx.fillStyle = '#1c202d';
+    ctx.fillRect(1660, 1720, 80, 120);
+    ctx.strokeRect(1660, 1720, 80, 120);
+    var sArrayGrad = ctx.createLinearGradient(1300, 1800, 1300, 1900);
+    sArrayGrad.addColorStop(0, '#14365f');
+    sArrayGrad.addColorStop(1, '#0c223c');
+    ctx.fillStyle = sArrayGrad;
+    ctx.fillRect(1300, 1800, 800, 100);
+    ctx.strokeRect(1300, 1800, 800, 100);
+    ctx.strokeStyle = '#2b78c9';
+    ctx.lineWidth = 1;
+    for (var sx2 = 1320; sx2 < 2100; sx2 += 40) {
+      ctx.beginPath();
+      ctx.moveTo(sx2, 1800);
+      ctx.lineTo(sx2, 1900);
+      ctx.stroke();
+    }
+    for (var sy2 = 1825; sy2 < 1900; sy2 += 25) {
+      ctx.beginPath();
+      ctx.moveTo(1300, sy2);
+      ctx.lineTo(2100, sy2);
+      ctx.stroke();
+    }
+
+    // 4. Rear Engine Cowlings & 4 Massive Thruster Plumes
+    var thrusterYs = [500, 700, 1220, 1420];
+    thrusterYs.forEach(function (ty, index) {
+      // Bell Nozzle
+      ctx.fillStyle = '#1e222e';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(120, ty - 38);
+      ctx.lineTo(40, ty - 50);
+      ctx.lineTo(40, ty + 50);
+      ctx.lineTo(120, ty + 38);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Nozzle interior glow
+      ctx.fillStyle = '#155577';
+      ctx.fillRect(40, ty - 45, 12, 90);
+
+      // Spewing animated plasma thruster flames
+      var flicker = Math.sin(animTime * 24 + index * 1.8);
+      var flameLen = 140 + flicker * 28;
+      var flameW = 44 + flicker * 6;
+
+      // Outer plasma flame
+      var outerGrad = ctx.createLinearGradient(40, ty, 40 - flameLen, ty);
+      outerGrad.addColorStop(0, 'rgba(56, 254, 220, 0.9)');
+      outerGrad.addColorStop(0.4, 'rgba(239, 125, 13, 0.7)');
+      outerGrad.addColorStop(1, 'rgba(239, 125, 13, 0)');
+      ctx.fillStyle = outerGrad;
+      ctx.beginPath();
+      ctx.moveTo(40, ty - flameW);
+      ctx.quadraticCurveTo(40 - flameLen * 0.4, ty - flameW * 0.8, 40 - flameLen, ty);
+      ctx.quadraticCurveTo(40 - flameLen * 0.4, ty + flameW * 0.8, 40, ty + flameW);
+      ctx.closePath();
+      ctx.fill();
+
+      // Inner white-hot core
+      var innerLen = flameLen * 0.6;
+      var innerW = flameW * 0.45;
+      var innerGrad = ctx.createLinearGradient(40, ty, 40 - innerLen, ty);
+      innerGrad.addColorStop(0, '#ffffff');
+      innerGrad.addColorStop(0.6, 'rgba(56, 254, 220, 0.85)');
+      innerGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = innerGrad;
+      ctx.beginPath();
+      ctx.moveTo(40, ty - innerW);
+      ctx.lineTo(40 - innerLen, ty);
+      ctx.lineTo(40, ty + innerW);
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    ctx.restore();
+  }
+
   // ── Ship Map Drawing (10-Room Layout) ───────────────────────
   function drawShipMap(ctx) {
     // Outer Cosmic Space Background
@@ -554,13 +798,16 @@
 
     // Parallax background starfield outside hull
     ctx.fillStyle = '#ffffff';
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 110; i++) {
       const sx = (i * 37 + animTime * 4) % WORLD_W;
       const sy = (i * 61) % WORLD_H;
       ctx.beginPath();
       ctx.arc(sx, sy, 1.2, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    // 1. Draw Exterior Hull Silhouette & Solar Wings
+    drawExteriorHullSilhouette(ctx);
 
     // Ship Floor Plate Base
     ctx.fillStyle = '#3c4052';
@@ -584,7 +831,6 @@
 
     // ── 1. Cafeteria (Central Hub 1160 to 1640, 600 to 1000) ──
     _drawRoom(ctx, 1160, 600, 480, 400, '#4f556b', 'CAFETERIA');
-    // Top observation glass viewport
     ctx.fillStyle = 'rgba(114, 231, 255, 0.25)';
     ctx.fillRect(1240, 606, 320, 16);
 
@@ -597,14 +843,12 @@
     ctx.fill();
     ctx.stroke();
 
-    // Red Emergency Button
     ctx.fillStyle = '#e74c3c';
     ctx.beginPath();
     ctx.arc(EMERGENCY_BUTTON.x, EMERGENCY_BUTTON.y, 22, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Tables and mess-hall seating
     _drawPropTable(ctx, 1240, 720, 80, 40);
     _drawPropTable(ctx, 1480, 720, 80, 40);
     _drawPropTable(ctx, 1240, 880, 80, 40);
@@ -615,14 +859,13 @@
     drawSprite(ctx, 'chair', 1220, 905, 42, 42);
     drawSprite(ctx, 'chairArms', 1335, 905, 44, 44);
     drawSprite(ctx, 'chair', 1500, 905, 42, 42);
-    // Vending / food-service machines
     drawSprite(ctx, 'barrel', 1190, 660, 54, 54);
+    drawSprite(ctx, 'barrel', 1400, 680, 52, 52);
     drawSprite(ctx, 'wireless', 1580, 660, 52, 52);
     drawSprite(ctx, 'generator', 1580, 940, 54, 54);
 
     // ── 2. Navigation / Cockpit (2520 to 2980, 750 to 1150) ──
     _drawRoom(ctx, 2520, 750, 460, 400, '#3f4f66', 'NAVIGATION');
-    // Star Viewports at front nose
     ctx.fillStyle = 'rgba(56, 254, 220, 0.35)';
     ctx.fillRect(2960, 820, 16, 260);
 
@@ -633,13 +876,11 @@
     roundRect(ctx, PILOT_CHAIR.x - 24, PILOT_CHAIR.y - 28, 48, 56, 8);
     ctx.fill();
     ctx.stroke();
-    // Headrest & armrests
     ctx.fillStyle = '#132ed1';
     roundRect(ctx, PILOT_CHAIR.x - 16, PILOT_CHAIR.y - 34, 32, 12, 4);
     ctx.fill();
     ctx.stroke();
 
-    // Pilot seating and navigation consoles
     drawSprite(ctx, 'chairArms', PILOT_CHAIR.x, PILOT_CHAIR.y, 58, 58);
     drawSprite(ctx, 'deskScreen', TASK_STATIONS.nav.x, TASK_STATIONS.nav.y, 72, 72);
     drawSprite(ctx, 'desk', 2600, 900, 64, 64);
@@ -647,32 +888,26 @@
 
     // ── 3. O2 & Greenhouse (2050 to 2450, 280 to 620) ──
     _drawRoom(ctx, 2050, 280, 400, 340, '#384d43', 'O2 & GREENHOUSE');
-    // Biosphere plant domes
-    ctx.fillStyle = 'rgba(78, 205, 120, 0.3)';
-    ctx.strokeStyle = '#117f2d';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(2150, 400, 42, 0, Math.PI * 2);
-    ctx.arc(2350, 400, 42, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    // O2 Scrubber Task Console
+    drawSprite(ctx, 'glassDome', 2150, 360, 96, 96);
+    drawSprite(ctx, 'glassDome', 2350, 360, 96, 96);
+    drawSprite(ctx, 'pipeStraight', 2250, 410, 64, 44);
     _drawTaskStation(ctx, TASK_STATIONS.o2_filter.x, TASK_STATIONS.o2_filter.y, '#2ecc71', 'O2 FILTER');
 
     // ── 4. Weapons & Shields (2150 to 2550, 1280 to 1620) ──
     _drawRoom(ctx, 2150, 1280, 400, 340, '#4d3838', 'WEAPONS & SHIELDS');
-    drawSprite(ctx, 'deskScreen', 2350, 1420, 72, 72);
+    drawSprite(ctx, 'turretDouble', 2350, 1340, 84, 84);
+    drawSprite(ctx, 'deskScreen', 2350, 1460, 72, 72);
     drawSprite(ctx, 'satellite', 2460, 1500, 76, 76);
     drawSprite(ctx, 'generator', 2240, 1500, 70, 70);
 
     // ── 5. Storage & Cargo Airlock (1250 to 1750, 1250 to 1650) ──
     _drawRoom(ctx, 1250, 1250, 500, 400, '#594d3b', 'STORAGE & AIRLOCK');
-    // Hazard Stripes on Airlock Hatch
     _drawHazardStripes(ctx, 1420, 1600, 160, 34);
-    // Cargo Task & Crates
     _drawTaskStation(ctx, TASK_STATIONS.cargo.x, TASK_STATIONS.cargo.y, '#e67e22', 'CARGO');
     drawSprite(ctx, 'barrel', 1340, 1380, 58, 58);
     drawSprite(ctx, 'barrel', 1650, 1380, 58, 58);
+    drawSprite(ctx, 'trainCargo', 1520, 1420, 96, 68);
+    drawSprite(ctx, 'rocketTop', 1660, 1310, 56, 56);
     drawSprite(ctx, 'barrelsRail', 1600, 1550, 96, 72);
     drawSprite(ctx, 'rover', 1370, 1570, 82, 82);
 
@@ -680,6 +915,8 @@
     _drawRoom(ctx, 650, 1180, 400, 340, '#4a4836', 'ELECTRICAL');
     drawSprite(ctx, 'generator', 760, 1320, 82, 82);
     drawSprite(ctx, 'wireless', 950, 1320, 68, 68);
+    drawSprite(ctx, 'pipeStraight', 760, 1220, 64, 44);
+    drawSprite(ctx, 'pipeCorner', 840, 1220, 54, 54);
     drawSprite(ctx, 'barrelsRail', 900, 1450, 88, 66);
     _drawTaskStation(ctx, TASK_STATIONS.wires.x, TASK_STATIONS.wires.y, '#f1c40f', 'WIRES');
 
@@ -695,12 +932,15 @@
     _drawRoom(ctx, 120, 420, 360, 340, '#30304a', 'UPPER REACTOR');
     _drawPulsingCore(ctx, 280, 580, '#38fedc');
     drawSprite(ctx, 'generator', 190, 680, 72, 72);
+    drawSprite(ctx, 'pipeStraight', 280, 480, 64, 48);
+    drawSprite(ctx, 'rocketBase', 190, 580, 68, 68);
     drawSprite(ctx, 'barrel', 390, 680, 52, 52);
 
     // ── 9. Lower Reactor (120 to 480, 1140 to 1480) ──
     _drawRoom(ctx, 120, 1140, 360, 340, '#30304a', 'LOWER REACTOR');
     _drawPulsingCore(ctx, 280, 1300, '#38fedc');
     drawSprite(ctx, 'generator', 190, 1400, 72, 72);
+    drawSprite(ctx, 'rocketBase', 190, 1300, 68, 68);
     drawSprite(ctx, 'barrel', 390, 1400, 52, 52);
 
     // ── 10. Security & Comms (450 to 750, 820 to 1080) ──
@@ -725,25 +965,65 @@
     // Left Reactor Spine
     ctx.fillRect(480, 560, 80, 780);
 
-    // Draw All Bulkhead Walls with Thick Comic Outlines
-    ctx.fillStyle = '#1c1e28';
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 4;
+    // Draw All Bulkhead Walls with 2.5D Beveled Shadows & Outlines
     WALLS.forEach(function (w) {
-      ctx.fillRect(w.x, w.y, w.w, w.h);
+      // 2.5D front-face shadow
+      ctx.fillStyle = '#141722';
+      ctx.fillRect(w.x, w.y + Math.max(0, w.h - 8), w.w, Math.min(8, w.h));
+      // 2.5D top lip / roof face
+      ctx.fillStyle = '#2b3040';
+      ctx.fillRect(w.x, w.y, w.w, Math.max(2, w.h - 8));
+      // Comic black outline
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
       ctx.strokeRect(w.x, w.y, w.w, w.h);
+      // Subtle top inner highlight
+      ctx.strokeStyle = '#3d445c';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(w.x + 1, w.y + 1, Math.max(0, w.w - 2), Math.max(0, w.h - 9));
     });
+
+    // Draw Automatic Sliding Airlock Doors
+    drawSlidingDoors(ctx, latestGameState ? latestGameState.players : null);
   }
 
   function _drawRoom(ctx, x, y, w, h, floorColor, label) {
+    // Floor Base
     ctx.fillStyle = floorColor;
     ctx.fillRect(x, y, w, h);
 
-    // Label with Among Us chunky typography
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-    ctx.font = 'bold 22px "Courier New", monospace';
+    // Floor Tiles / Grating Pattern
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for (var gx = x + 30; gx < x + w; gx += 40) {
+      ctx.beginPath();
+      ctx.moveTo(gx, y);
+      ctx.lineTo(gx, y + h);
+      ctx.stroke();
+    }
+    for (var gy = y + 30; gy < y + h; gy += 40) {
+      ctx.beginPath();
+      ctx.moveTo(x, gy);
+      ctx.lineTo(x + w, gy);
+      ctx.stroke();
+    }
+
+    // Metallic Inner Trim Border
+    ctx.strokeStyle = '#222634';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+    ctx.strokeStyle = '#4a536e';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 5, y + 5, w - 10, h - 10);
+    ctx.restore();
+
+    // Large Stenciled Floor Label
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+    ctx.font = '900 24px "Courier New", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(label, x + w / 2, y + 42);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + w / 2, y + h / 2);
   }
 
   function _drawPropTable(ctx, x, y, w, h) {
@@ -1060,6 +1340,166 @@
     ctx.restore();
   }
 
+  // ── Ambient Room Particles System ───────────────────────────
+  const AMBIENT_PARTICLES = [];
+  function updateAndDrawParticles(ctx, scene, players) {
+    // 1. Greenhouse O2 bubbles
+    if (scene !== 'moon' && Math.random() < 0.28 && AMBIENT_PARTICLES.length < 90) {
+      AMBIENT_PARTICLES.push({
+        type: 'bubble',
+        x: 2090 + Math.random() * 320,
+        y: 600,
+        vy: -0.7 - Math.random() * 0.9,
+        vx: (Math.random() - 0.5) * 0.3,
+        r: 2 + Math.random() * 3.5,
+        alpha: 0.7,
+        life: 1.0
+      });
+    }
+
+    // 2. Electrical sparks
+    if (scene !== 'moon' && Math.random() < 0.06 && AMBIENT_PARTICLES.length < 90) {
+      for (var s = 0; s < 4; s++) {
+        AMBIENT_PARTICLES.push({
+          type: 'spark',
+          x: 760 + (Math.random() - 0.5) * 50,
+          y: 1320 + (Math.random() - 0.5) * 50,
+          vx: (Math.random() - 0.5) * 3.5,
+          vy: (Math.random() - 0.5) * 3.5,
+          r: 1.5 + Math.random() * 1.5,
+          alpha: 1.0,
+          life: 0.35 + Math.random() * 0.2
+        });
+      }
+    }
+
+    // 3. Moon walking dust puffs
+    if (scene === 'moon' && players) {
+      Object.values(players).forEach(function (p) {
+        if (p.moving && Math.random() < 0.35 && AMBIENT_PARTICLES.length < 90) {
+          AMBIENT_PARTICLES.push({
+            type: 'dust',
+            x: p.x + (Math.random() - 0.5) * 16,
+            y: p.y + 18,
+            vx: (Math.random() - 0.5) * 0.6,
+            vy: -0.3 - Math.random() * 0.4,
+            r: 3 + Math.random() * 4,
+            alpha: 0.45,
+            life: 0.6
+          });
+        }
+      });
+    }
+
+    // Update & draw particles
+    for (var i = AMBIENT_PARTICLES.length - 1; i >= 0; i--) {
+      var p = AMBIENT_PARTICLES[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.016;
+      p.alpha = Math.max(0, p.life);
+
+      if (p.life <= 0) {
+        AMBIENT_PARTICLES.splice(i, 1);
+        continue;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      if (p.type === 'bubble') {
+        ctx.fillStyle = 'rgba(78, 205, 120, 0.65)';
+        ctx.strokeStyle = '#2ecc71';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      } else if (p.type === 'spark') {
+        ctx.fillStyle = '#fff455';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.type === 'dust') {
+        ctx.fillStyle = '#b0b5c0';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  // ── Dynamic 2D Lighting (Additive Glow Pools) ───────────────
+  function drawDynamicLighting(ctx, scene, gameState) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+
+    if (scene !== 'moon') {
+      // 1. Reactor cores: pulsing cyan
+      var rCorePulse = 110 + Math.sin(animTime * 4) * 20;
+      [ { x: 280, y: 580 }, { x: 280, y: 1300 } ].forEach(function (pos) {
+        var grad = ctx.createRadialGradient(pos.x, pos.y, 10, pos.x, pos.y, rCorePulse);
+        grad.addColorStop(0, 'rgba(56, 254, 220, 0.45)');
+        grad.addColorStop(0.5, 'rgba(19, 46, 209, 0.2)');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, rCorePulse, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 2. Greenhouse emerald green domes
+      [ { x: 2150, y: 400 }, { x: 2350, y: 400 } ].forEach(function (pos) {
+        var grad = ctx.createRadialGradient(pos.x, pos.y, 5, pos.x, pos.y, 110);
+        grad.addColorStop(0, 'rgba(46, 204, 113, 0.38)');
+        grad.addColorStop(0.6, 'rgba(17, 127, 45, 0.15)');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, 110, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 3. Navigation holo-console
+      var navGrad = ctx.createRadialGradient(2850, 950, 10, 2850, 950, 140);
+      navGrad.addColorStop(0, 'rgba(56, 180, 254, 0.38)');
+      navGrad.addColorStop(0.7, 'rgba(56, 254, 220, 0.12)');
+      navGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = navGrad;
+      ctx.beginPath();
+      ctx.arc(2850, 950, 140, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 4. Cafeteria central table pool
+      var cafeGrad = ctx.createRadialGradient(1400, 800, 15, 1400, 800, 160);
+      cafeGrad.addColorStop(0, 'rgba(255, 235, 190, 0.24)');
+      cafeGrad.addColorStop(0.7, 'rgba(239, 125, 13, 0.08)');
+      cafeGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = cafeGrad;
+      ctx.beginPath();
+      ctx.arc(1400, 800, 160, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Lunar warm gold pools over cheese wheels
+      if (gameState && gameState.cheeseWheels) {
+        gameState.cheeseWheels.forEach(function (cw) {
+          if (!cw.collected) {
+            var g = ctx.createRadialGradient(cw.x, cw.y, 5, cw.x, cw.y, 75);
+            g.addColorStop(0, 'rgba(245, 245, 87, 0.45)');
+            g.addColorStop(0.6, 'rgba(239, 125, 13, 0.15)');
+            g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(cw.x, cw.y, 75, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+      }
+    }
+
+    ctx.restore();
+  }
+
   // ── Main Render ────────────────────────────────────────────
   function render(gameState) {
     latestGameState = gameState;
@@ -1199,6 +1639,12 @@
         ctx.restore();
       }
     }
+
+    // Ambient Room Particles (Greenhouse O2 bubbles, Electrical sparks, Lunar walking dust)
+    updateAndDrawParticles(ctx, currentScene, players);
+
+    // Dynamic 2D Lighting (Reactors, Greenhouse, Navigation holo-console, Cafeteria, Moon cheese)
+    drawDynamicLighting(ctx, currentScene, state);
 
     ctx.restore(); // End camera transform
 

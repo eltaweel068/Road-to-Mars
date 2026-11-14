@@ -80,7 +80,7 @@ window.RTM.Tasks = (function () {
       '  <h3 class="task-title">' + meta.title + '</h3>',
       '</div>',
       '<p class="task-instruction">' + meta.instruction + '</p>',
-      '<div class="task-stage"><canvas id="taskCanvas" width="540" height="380" style="display:block; margin:0 auto; border-radius:12px; border:3px solid #000; box-shadow:0 8px 24px rgba(0,0,0,0.6); background:#111;"></canvas></div>',
+      '<div class="task-stage"><canvas id="taskCanvas" width="540" height="380" style="display:block; margin:0 auto; max-width:100%; max-height:100%; box-sizing:border-box; border-radius:12px; border:3px solid #000; box-shadow:0 8px 24px rgba(0,0,0,0.6); background:#111;"></canvas></div>',
       '<div class="task-feedback" id="taskFeedback"></div>'
     ].join('');
     return els.content.querySelector('#taskCanvas');

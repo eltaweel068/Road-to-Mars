@@ -803,12 +803,19 @@ window.RTM.Net = (function () {
       if (offlineTaskCooldowns[key] && current - offlineTaskCooldowns[key] < 8000) return;
       offlineTaskCooldowns[key] = current;
       var t = state.telemetry;
-      if (taskId === 'wires') t.fuel = Math.min(100, t.fuel + 8);
-      else if (taskId === 'o2_filter') t.o2 = Math.min(100, t.o2 + 12);
-      else if (taskId === 'nav') t.marsProgress = Math.min(100, t.marsProgress + 3);
-      else if (taskId === 'cargo') t.payloadMass = Math.max(0, t.payloadMass - 15);
-      else if (taskId === 'science') t.science += 25;
-      else return;
+      if (taskId === 'wires') {
+        t.fuel = Math.min(100, Math.max(0, t.fuel + 15));
+      } else if (taskId === 'o2_filter') {
+        t.o2 = Math.min(100, Math.max(0, t.o2 + 20));
+      } else if (taskId === 'nav') {
+        t.marsProgress = Math.min(100, Math.max(0, t.marsProgress + 8));
+        t.autopilot = true;
+      } else if (taskId === 'cargo') {
+        t.hull = Math.min(100, Math.max(0, (t.hull != null ? t.hull : 100) + 20));
+        t.payloadMass = Math.max(0, t.payloadMass - 15);
+      } else if (taskId === 'science') {
+        t.science += 30;
+      } else return;
       state.tasks.progress = Math.min(100, state.tasks.progress + 20);
       state.tasks.completions += 1;
       state.tasks.byTask[taskId] = (state.tasks.byTask[taskId] || 0) + 1;
@@ -892,6 +899,31 @@ window.RTM.Net = (function () {
         case 'meeting:end': offline.resolveMeeting('host'); break;
         case 'task:complete': offline.completeTask(data); break;
         case 'cargo:jettison': offline.jettison(data && data.type); break;
+        case 'cockpit:obstacle:cleared':
+          if (state.phase === 'playing') {
+            state.telemetry.science = (state.telemetry.science || 0) + 10;
+            state.telemetry.marsProgress = Math.min(100, Math.max(0, (state.telemetry.marsProgress || 0) + 2));
+            offline.recompute();
+            dispatchTelemetry();
+          }
+          break;
+        case 'cockpit:obstacle:hit':
+          if (state.phase === 'playing') {
+            state.telemetry.hull = Math.min(100, Math.max(0, (state.telemetry.hull != null ? state.telemetry.hull : 100) - 5));
+            offline.recompute();
+            dispatchTelemetry();
+            offline.checkWin();
+          }
+          break;
+        case 'cockpit:wave:cleared':
+          if (state.phase === 'playing') {
+            state.telemetry.autopilot = true;
+            state.telemetry.marsProgress = Math.min(100, Math.max(0, (state.telemetry.marsProgress || 0) + 10));
+            offline.recompute();
+            dispatchTelemetry();
+            offline.checkWin();
+          }
+          break;
         case 'room:send:message': offline.sendMessage(data); break;
         case 'state:request': dispatch('state:snapshot', { roomId: roomId, room: state.room }); break;
         default: console.log('[Net:offline] unhandled emit:', event, data);

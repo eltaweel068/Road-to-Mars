@@ -6,6 +6,7 @@ window.RTM.Cockpit = (function () {
   var scene = null;
   var camera = null;
   var renderer = null;
+  var composer = null;
   var rafId = null;
   var initialized = false;
   var built = false;
@@ -133,6 +134,49 @@ window.RTM.Cockpit = (function () {
   var obstaclesClearedCount = 0;
   var laserMaterial = null;
   var cameraShakeTime = 0;
+  var asteroidNoiseTexture = null;
+
+  function ensureSphericalUVs(geometry) {
+    if (!geometry) return geometry;
+    var pos = geometry.getAttribute('position');
+    if (!pos) return geometry;
+    var count = pos.count;
+    var uvs = new Float32Array(count * 2);
+    for (var i = 0; i < count; i++) {
+      var x = pos.getX(i);
+      var y = pos.getY(i);
+      var z = pos.getZ(i);
+      var len = Math.hypot(x, y, z) || 1.0;
+      var nx = x / len;
+      var ny = y / len;
+      var nz = z / len;
+      var u = 0.5 + Math.atan2(nz, nx) / (2 * Math.PI);
+      var v = 0.5 - Math.asin(Math.max(-1, Math.min(1, ny))) / Math.PI;
+      uvs[i * 2] = u;
+      uvs[i * 2 + 1] = v;
+    }
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.uvsNeedUpdate = true;
+    return geometry;
+  }
+
+  function getAsteroidMaterial(colorHex) {
+    if (!asteroidNoiseTexture && typeof THREE.TextureLoader !== 'undefined') {
+      var loader = new THREE.TextureLoader();
+      asteroidNoiseTexture = loader.load('/assets/kenney_planets/Parts/noise05.png');
+      asteroidNoiseTexture.wrapS = THREE.RepeatWrapping;
+      asteroidNoiseTexture.wrapT = THREE.RepeatWrapping;
+      asteroidNoiseTexture.repeat.set(2.5, 2.5);
+    }
+    return new THREE.MeshStandardMaterial({
+      color: colorHex || 0x8a8894,
+      map: asteroidNoiseTexture,
+      bumpMap: asteroidNoiseTexture,
+      bumpScale: 1.8,
+      roughness: 0.82,
+      metalness: 0.25
+    });
+  }
 
   function preloadNasaModels(onReady) {
     if (typeof THREE.STLLoader === 'undefined') {
@@ -146,6 +190,7 @@ window.RTM.Cockpit = (function () {
       stlLoader.load(item.url, function (geometry) {
         geometry.center();
         geometry.computeVertexNormals();
+        ensureSphericalUVs(geometry);
         nasaGeometryCache[item.id] = {
           geometry: geometry,
           meta: item
@@ -218,6 +263,11 @@ window.RTM.Cockpit = (function () {
   function spawnObstacleWave() {
     obstaclesClearedCount = 0;
     var asteroidKeys = Object.keys(nasaGeometryCache);
+    var shipPos = shipGroup ? shipGroup.position : new THREE.Vector3();
+    var shipQuat = shipGroup ? shipGroup.quaternion : new THREE.Quaternion();
+    var forward = new THREE.Vector3(0, 0, -1).applyQuaternion(shipQuat).normalize();
+    var right = new THREE.Vector3(1, 0, 0).applyQuaternion(shipQuat).normalize();
+    var up = new THREE.Vector3(0, 1, 0).applyQuaternion(shipQuat).normalize();
 
     for (var i = 0; i < 18; i++) {
       var isNasaAsteroid = i % 2 === 0 && asteroidKeys.length > 0;
@@ -227,11 +277,7 @@ window.RTM.Cockpit = (function () {
       if (isNasaAsteroid) {
         var key = asteroidKeys[i % asteroidKeys.length];
         var cached = nasaGeometryCache[key];
-        var mat = new THREE.MeshStandardMaterial({
-          color: 0x8c8985,
-          roughness: 0.9,
-          metalness: 0.1
-        });
+        var mat = getAsteroidMaterial(0x8c8985);
         mesh = new THREE.Mesh(cached.geometry, mat);
         mesh.scale.setScalar(cached.meta.scale * (1.5 + Math.random() * 0.8));
         meta = cached.meta;
@@ -246,22 +292,25 @@ window.RTM.Cockpit = (function () {
         meta = { name: 'Cosmic Space Debris', fact: 'Orbital booster stage fragment.' };
       }
 
-      var shipX = shipGroup ? shipGroup.position.x : 0;
-      var shipY = shipGroup ? shipGroup.position.y : 0;
-      var shipZ = shipGroup ? shipGroup.position.z : 0;
+      var distAhead = 180 + (i * 45);
+      var lateral = (Math.random() - 0.5) * 80;
+      var vertical = (Math.random() - 0.5) * 45;
 
-      mesh.position.set(
-        shipX + (Math.random() - 0.5) * 80,
-        shipY + (Math.random() - 0.5) * 45,
-        shipZ - 180 - (i * 45)
-      );
+      mesh.position.copy(shipPos)
+        .addScaledVector(forward, distAhead)
+        .addScaledVector(right, lateral)
+        .addScaledVector(up, vertical);
 
       mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
       mesh.userData = {
+        hp: 2,
+        maxHp: 2,
+        flashTimer: 0,
         rotSpeedX: (Math.random() - 0.5) * 1.5,
         rotSpeedY: (Math.random() - 0.5) * 1.5,
         radius: 4.5,
-        meta: meta
+        meta: meta,
+        velocity: forward.clone().multiplyScalar(-42)
       };
 
       scene.add(mesh);
@@ -299,11 +348,7 @@ window.RTM.Cockpit = (function () {
     if (isNasa) {
       var key = asteroidKeys[Math.floor(Math.random() * asteroidKeys.length)];
       var cached = nasaGeometryCache[key];
-      var mat = new THREE.MeshStandardMaterial({
-        color: 0x9a9892,
-        roughness: 0.88,
-        metalness: 0.12
-      });
+      var mat = getAsteroidMaterial(0x9a9892);
       mesh = new THREE.Mesh(cached.geometry, mat);
       var scale = cached.meta.scale * (1.8 + Math.random() * 1.0);
       mesh.scale.setScalar(scale);
@@ -319,12 +364,18 @@ window.RTM.Cockpit = (function () {
       meta = { name: 'Booster Debris Stage', fact: 'Jettisoned upper-stage casing in Mars transfer orbit.' };
     }
 
-    var shipPos = shipGroup.position;
-    mesh.position.set(
-      shipPos.x + (Math.random() - 0.5) * 220,
-      shipPos.y + (Math.random() - 0.5) * 140,
-      shipPos.z - 380 - Math.random() * 260
-    );
+    var forward = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion).normalize();
+    var right = new THREE.Vector3(1, 0, 0).applyQuaternion(shipGroup.quaternion).normalize();
+    var up = new THREE.Vector3(0, 1, 0).applyQuaternion(shipGroup.quaternion).normalize();
+
+    var distAhead = 380 + Math.random() * 260;
+    var lateral = (Math.random() - 0.5) * 220;
+    var vertical = (Math.random() - 0.5) * 140;
+
+    mesh.position.copy(shipGroup.position)
+      .addScaledVector(forward, distAhead)
+      .addScaledVector(right, lateral)
+      .addScaledVector(up, vertical);
 
     mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
     mesh.userData = {
@@ -334,7 +385,8 @@ window.RTM.Cockpit = (function () {
       rotSpeedX: (Math.random() - 0.5) * 1.8,
       rotSpeedY: (Math.random() - 0.5) * 1.8,
       meta: meta,
-      flashTimer: 0
+      flashTimer: 0,
+      velocity: forward.clone().multiplyScalar(-42)
     };
 
     scene.add(mesh);
@@ -461,7 +513,8 @@ window.RTM.Cockpit = (function () {
             }
             showCockpitScanPopup(obst.userData.meta);
 
-            scene.remove(obst);
+            if (obst.parent) obst.parent.remove(obst);
+            else scene.remove(obst);
             activeObstacles.splice(o, 1);
 
             obstaclesClearedCount++;
@@ -484,9 +537,17 @@ window.RTM.Cockpit = (function () {
 
     for (var k = activeObstacles.length - 1; k >= 0; k--) {
       var obs = activeObstacles[k];
-      obs.position.z += 42 * dt;
-      obs.rotation.x += obs.userData.rotSpeedX * dt;
-      obs.rotation.y += obs.userData.rotSpeedY * dt;
+      var moveVel = obs.userData.velocity;
+      if (moveVel) {
+        obs.position.addScaledVector(moveVel, dt);
+      } else if (shipGroup) {
+        var toShip = shipGroup.position.clone().sub(obs.position).normalize();
+        obs.position.addScaledVector(toShip, 42 * dt);
+      } else {
+        obs.position.z += 42 * dt;
+      }
+      obs.rotation.x += (obs.userData.rotSpeedX || 0.4) * dt;
+      obs.rotation.y += (obs.userData.rotSpeedY || 0.4) * dt;
 
       if (obs.userData.flashTimer > 0) {
         obs.userData.flashTimer -= dt;
@@ -508,13 +569,17 @@ window.RTM.Cockpit = (function () {
             RTM.Net.emit('cockpit:obstacle:hit');
           }
 
-          scene.remove(obs);
+          if (obs.parent) obs.parent.remove(obs);
+          else scene.remove(obs);
           activeObstacles.splice(k, 1);
           continue;
         }
 
-        if (obs.position.z > shipGroup.position.z + 40) {
-          scene.remove(obs);
+        var forwardVec = new THREE.Vector3(0, 0, -1).applyQuaternion(shipGroup.quaternion).normalize();
+        var toObs = obs.position.clone().sub(shipGroup.position);
+        if (toObs.dot(forwardVec) < -40 || toObs.length() > 900) {
+          if (obs.parent) obs.parent.remove(obs);
+          else scene.remove(obs);
           activeObstacles.splice(k, 1);
         }
       }
@@ -836,6 +901,8 @@ window.RTM.Cockpit = (function () {
     if (!root) return;
     root.innerHTML = [
       '<div class="cockpit-vignette"></div>',
+      '<div id="cockpitWaveBanner" class="cockpit-banner" style="display:none; position:absolute; top:78px; left:50%; transform:translateX(-50%); background:rgba(197,17,17,0.92); border:3px solid #000; padding:10px 22px; border-radius:10px; font-weight:bold; z-index:10;"></div>',
+      '<div id="cockpitScanPopup" class="cockpit-scan-popup" style="display:none; position:absolute; top:140px; left:24px; max-width:320px; background:rgba(10,22,38,0.92); border:3px solid #38fedc; padding:10px 14px; border-radius:10px; z-index:10;"></div>',
       '<div class="cockpit-hud">',
       '  <div class="cockpit-top">',
       '    <div class="cockpit-badge">RTM FLIGHT DECK · 6-DOF</div>',
@@ -858,6 +925,7 @@ window.RTM.Cockpit = (function () {
       '  </div>',
       '  <div class="cockpit-dashboard">',
       '    <div class="cockpit-readouts">',
+      '      <div class="cockpit-readout"><span>HULL</span><strong id="cockpitHull">100%</strong></div>',
       '      <div class="cockpit-readout"><span>FUEL</span><strong id="cockpitFuel">100%</strong></div>',
       '      <div class="cockpit-readout"><span>O2</span><strong id="cockpitO2">100%</strong></div>',
       '      <div class="cockpit-readout"><span>VELOCITY</span><strong id="cockpitSpeedValue">0.0</strong></div>',
@@ -872,19 +940,20 @@ window.RTM.Cockpit = (function () {
       '      <label class="cockpit-slider-label">THROTTLE · SHIFT / CTRL · 1–5',
       '        <input type="range" id="cockpitThrottle" min="0" max="100" step="1" value="0">',
       '      </label>',
-      '      <div class="cockpit-control-help">W/S PITCH · A/D YAW · Q/E ROLL<br>SPACE AFTERBURNER · C CAMERA · L LAND</div>',
+      '      <div class="cockpit-control-help">W/S PITCH · A/D YAW · Q/E ROLL<br>B AFTERBURNER · SPACE FIRE LASERS · C CAMERA · L LAND</div>',
       '    </div>',
       '    <div class="cockpit-buttons">',
       '      <button class="au-btn au-btn-blue" id="cockpitCameraBtn">CAM: CHASE (C)</button>',
       '      <button class="au-btn au-btn-yellow" id="cockpitLandBtn">LAND ON MOON (L)</button>',
       '      <button class="au-btn au-btn-gray" id="cockpitLeaveBtn">LEAVE CONTROLS (ESC)</button>',
       '    </div>',
-      '    <div class="cockpit-status" id="cockpitStatus">Flight deck online. W/S pitch · A/D yaw · Q/E roll · SHIFT/CTRL throttle · SPACE afterburner.</div>',
+      '    <div class="cockpit-status" id="cockpitStatus">Flight deck online. W/S pitch · A/D yaw · Q/E roll · SHIFT/CTRL throttle · B afterburner · SPACE fire lasers.</div>',
       '  </div>',
       '</div>'
     ].join('');
 
     els.orbital = document.getElementById('cockpitOrbital');
+    els.hull = document.getElementById('cockpitHull');
     els.fuel = document.getElementById('cockpitFuel');
     els.o2 = document.getElementById('cockpitO2');
     els.speed = document.getElementById('cockpitSpeedValue');
@@ -954,6 +1023,36 @@ window.RTM.Cockpit = (function () {
     renderer.domElement.className = 'cockpit-canvas';
     root.insertBefore(renderer.domElement, root.firstChild);
     bindPointerFlight(renderer.domElement);
+
+    // HDRI Environment Reflections
+    if (typeof THREE.RGBELoader !== 'undefined') {
+      var rgbeLoader = new THREE.RGBELoader();
+      rgbeLoader.load('/skyfall-assets/environment/sky-lighting.hdr', function (texture) {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        if (scene) scene.environment = texture;
+      }, undefined, function (err) {
+        console.warn('HDRI environment notice:', err);
+      });
+    }
+
+    // EffectComposer + UnrealBloomPass Post-Processing
+    if (typeof THREE.EffectComposer !== 'undefined' && typeof THREE.RenderPass !== 'undefined' && typeof THREE.UnrealBloomPass !== 'undefined') {
+      try {
+        composer = new THREE.EffectComposer(renderer);
+        var renderPass = new THREE.RenderPass(scene, camera);
+        composer.addPass(renderPass);
+        var bloomPass = new THREE.UnrealBloomPass(
+          new THREE.Vector2(window.innerWidth, window.innerHeight),
+          1.05,
+          0.4,
+          0.75
+        );
+        composer.addPass(bloomPass);
+      } catch (err) {
+        console.warn('Composer init error:', err);
+        composer = null;
+      }
+    }
 
     scene.add(new THREE.AmbientLight(0x334466, 0.7));
     var sunLight = new THREE.DirectionalLight(0xfff4e0, 2.4);
@@ -1277,6 +1376,10 @@ window.RTM.Cockpit = (function () {
 
   function attachThrusters() {
     thrusterPlumes = [];
+    var plasmaTex = null;
+    if (typeof THREE.TextureLoader !== 'undefined') {
+      plasmaTex = new THREE.TextureLoader().load('/skyfall-assets/effects/afterburner-plasma.png');
+    }
     var offsets = [new THREE.Vector3(-2.1, 0, 4.8), new THREE.Vector3(2.1, 0, 4.8)];
     offsets.forEach(function (offset, index) {
       var nozzle = new THREE.Group();
@@ -1303,8 +1406,45 @@ window.RTM.Cockpit = (function () {
       inner.position.z = 1.6;
       nozzle.add(outer);
       nozzle.add(inner);
+
+      var plasmaSprite = null;
+      if (plasmaTex) {
+        var pMat = new THREE.SpriteMaterial({
+          map: plasmaTex,
+          color: 0x38fedc,
+          transparent: true,
+          opacity: 0.82,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        plasmaSprite = new THREE.Sprite(pMat);
+        plasmaSprite.scale.set(2.4, 4.8, 1);
+        plasmaSprite.position.set(0, 0, 3.2);
+        nozzle.add(plasmaSprite);
+      }
+
       shipGroup.add(nozzle);
-      thrusterPlumes.push({ nozzle: nozzle, outer: outer, inner: inner, phase: index * 2.1 });
+      thrusterPlumes.push({
+        nozzle: nozzle,
+        outer: outer,
+        inner: inner,
+        plasma: plasmaSprite,
+        phase: index * 2.1
+      });
+    });
+
+    // Wingtip weapon pods with glowing laser emitters
+    var podGeo = new THREE.CylinderGeometry(0.18, 0.22, 3.2, 10);
+    podGeo.rotateX(Math.PI / 2);
+    var podMat = new THREE.MeshStandardMaterial({ color: 0x1f2430, metalness: 0.8, roughness: 0.3 });
+    [-4.6, 4.6].forEach(function (x) {
+      var pod = new THREE.Mesh(podGeo, podMat);
+      pod.position.set(x, -0.2, 0.8);
+      var tipMat = new THREE.MeshBasicMaterial({ color: 0x38fedc });
+      var tip = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), tipMat);
+      tip.position.set(0, 0, -1.6);
+      pod.add(tip);
+      shipGroup.add(pod);
     });
   }
 
@@ -1335,8 +1475,18 @@ window.RTM.Cockpit = (function () {
         var scale = 2.4 + Math.random() * 9;
         rock.scale.set(scale, scale * (0.65 + Math.random() * 0.5), scale);
         rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-        rock.userData.spin = 0.12 + Math.random() * 0.3;
+        rock.userData = {
+          hp: 2,
+          maxHp: 2,
+          radius: 5.5,
+          rotSpeedX: 0.4,
+          rotSpeedY: 0.4,
+          meta: { name: 'Main Belt Asteroid', fact: 'Silicate-iron planetesimal fragment.' },
+          spin: 0.12 + Math.random() * 0.3,
+          flashTimer: 0
+        };
         asteroidGroup.add(rock);
+        activeObstacles.push(rock);
       }
     };
     loadFirstModel([MODEL_BASE + 'meteor_detailed.glb', MODEL_BASE + 'rock_largeA.glb'], function (model) {
@@ -1351,8 +1501,18 @@ window.RTM.Cockpit = (function () {
         var scale = 3 + Math.random() * 11;
         rock.scale.multiplyScalar(scale);
         rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-        rock.userData.spin = 0.12 + Math.random() * 0.3;
+        rock.userData = {
+          hp: 2,
+          maxHp: 2,
+          radius: 5.5,
+          rotSpeedX: 0.4,
+          rotSpeedY: 0.4,
+          meta: { name: 'Main Belt Asteroid', fact: 'Silicate-iron planetesimal fragment.' },
+          spin: 0.12 + Math.random() * 0.3,
+          flashTimer: 0
+        };
         asteroidGroup.add(rock);
+        activeObstacles.push(rock);
       }
     }, fallback);
   }
@@ -1400,7 +1560,7 @@ window.RTM.Cockpit = (function () {
     if (keysDown.ControlLeft || keysDown.ControlRight) {
       throttle = clamp(throttle - dt * 0.62, 0, 1);
     }
-    boost = !!keysDown.Space;
+    boost = !!(keysDown.KeyB);
 
     updateThrottleLabels();
     if (yawInput || pitchInput || rollInput || boost || keysDown.ShiftLeft || keysDown.ShiftRight || keysDown.ControlLeft || keysDown.ControlRight) {
@@ -1471,7 +1631,11 @@ window.RTM.Cockpit = (function () {
       updateReadouts();
     }
     drawNavball();
-    renderer.render(scene, camera);
+    if (composer) {
+      composer.render();
+    } else {
+      renderer.render(scene, camera);
+    }
   }
 
   function updateShipFlight(dt) {
@@ -1494,6 +1658,13 @@ window.RTM.Cockpit = (function () {
       plume.outer.scale.set(plumeScale * flicker, plumeScale * flicker, (boost ? 2.1 : 1.1) * flicker);
       plume.inner.scale.set(plumeScale * flicker, plumeScale * flicker, (boost ? 1.7 : 0.9) * flicker);
       plume.outer.material.color.setHex(boost ? 0xffb347 : 0x38fedc);
+      if (plume.plasma) {
+        var pScale = plumeScale * (boost ? 2.4 : 1.2) * flicker;
+        plume.plasma.scale.set(pScale * 1.8, pScale * (boost ? 4.8 : 3.0), 1);
+        plume.plasma.material.color.setHex(boost ? 0xffaa33 : 0x38fedc);
+        plume.plasma.material.opacity = boost ? 0.98 : 0.82;
+        plume.plasma.visible = plumeScale > 0.01;
+      }
       plume.nozzle.visible = plumeScale > 0.01;
     });
     navLights.forEach(function (lamp, index) {
@@ -1627,9 +1798,11 @@ window.RTM.Cockpit = (function () {
     var moonState = (gameState.moon && gameState.moon.state) || 'orbit';
     var fuel = telemetry.fuel != null ? telemetry.fuel : 100;
     var o2 = telemetry.o2 != null ? telemetry.o2 : 100;
+    var hull = telemetry.hull != null ? telemetry.hull : 100;
 
     if (els.fuel) els.fuel.textContent = Math.round(fuel) + '%';
     if (els.o2) els.o2.textContent = Math.round(o2) + '%';
+    if (els.hull) els.hull.textContent = Math.round(hull) + '%';
     if (els.headingValue) els.headingValue.textContent = String((Math.round(normalizeDeg(-yaw * 180 / Math.PI)) + 180) % 360).padStart(3, '0') + '°';
     if (els.pitchValue) els.pitchValue.textContent = Math.round(pitch * 180 / Math.PI) + '°';
     if (els.rollValue) els.rollValue.textContent = Math.round(normalizeDeg((manualRoll + autoRoll) * 180 / Math.PI)) + '°';
@@ -1665,7 +1838,7 @@ window.RTM.Cockpit = (function () {
       } else if (boost) {
         els.status.textContent = 'AFTERBURNER ACTIVE · HULL SHAKE WITHIN LIMITS';
       } else {
-        els.status.textContent = 'W/S PITCH · A/D YAW · Q/E ROLL · SHIFT/CTRL THROTTLE · SPACE AFTERBURNER · 1–5 PRESET';
+        els.status.textContent = 'W/S PITCH · A/D YAW · Q/E ROLL · SHIFT/CTRL THROTTLE · B AFTERBURNER · SPACE FIRE LASERS · 1–5 PRESET';
       }
     }
   }
@@ -1845,6 +2018,9 @@ window.RTM.Cockpit = (function () {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    if (composer) {
+      composer.setSize(window.innerWidth, window.innerHeight);
+    }
     if (starField && starField.material.uniforms.uPixelRatio) {
       starField.material.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio || 1, 2);
     }
