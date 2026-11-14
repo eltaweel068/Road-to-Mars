@@ -830,7 +830,8 @@ window.RTM.Net = (function () {
         t.marsProgress = Math.min(100, Math.max(0, t.marsProgress + 8));
         t.autopilot = true;
       } else if (taskId === 'cargo') {
-        t.hull = Math.min(100, Math.max(0, (t.hull != null ? t.hull : 100) + 20));
+        t.hull = 100;
+        t.fuel = 100;
         t.payloadMass = Math.max(0, t.payloadMass - 15);
       } else if (taskId === 'science') {
         t.science += 30;

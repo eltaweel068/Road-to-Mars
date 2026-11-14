@@ -25,7 +25,7 @@ window.RTM.Tasks = (function () {
     co2_scrubber: '🫧 CO2 VENTED & O2 AT 21.0 kPa: -45% CO2, +18% O2!',
     fuel_synth: '⛽ PROPELLANT SYNTHESIZED: +28% FUEL & -15% CO2!',
     nav: '🧭 VECTOR LOCKED: +8% MARS PROGRESS & GYRO CALIBRATED!',
-    cargo: '🛡️ HULL WELDED: +20% HULL INTEGRITY & -15 KG MASS!',
+    cargo: '🛡️ HULL & FUEL RESTORED: 100% FULL TANK & -15 KG MASS!',
     science: '📡 DSN LINK ESTABLISHED: +30 SCIENCE DATA!',
     cheese_grill: '🧀 ROMY CHEESE MELTED: +18% FOOD & STARVATION PREVENTED!',
     reactor_cool: '❄️ CRYO COOLING NOMINAL: +18% FUEL & CORE STABILIZED!',
@@ -1130,7 +1130,7 @@ window.RTM.Tasks = (function () {
         ctx.fillStyle = '#50ef39';
         ctx.font = 'bold 22px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('🛡️ HULL WELDED & SECURED! (+20% HULL, -15KG)', canvas.width / 2, 50);
+        ctx.fillText('🛡️ HULL & FUEL RESTORED TO 100% FULL TANK!', canvas.width / 2, 50);
         setTimeout(onComplete, 850);
         return;
       }

@@ -754,7 +754,8 @@ function applyTask(room, player, taskId, byBot = false) {
     telemetry.marsProgress = clamp(telemetry.marsProgress + 8, 0, 100);
     telemetry.autopilot = true;
   } else if (taskId === "cargo") {
-    telemetry.hull = clamp((telemetry.hull ?? 100) + 20, 0, 100);
+    telemetry.hull = 100;
+    telemetry.fuel = 100;
     telemetry.payloadMass = Math.max(0, telemetry.payloadMass - 15);
   } else if (taskId === "science") {
     telemetry.science += 30;
