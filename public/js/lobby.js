@@ -32,6 +32,7 @@ window.RTM.Lobby = (function () {
   var specialtySent = false;
   var localConfigPending = false;
   var configPendingTimer = null;
+  var serverNetworkUrl = '';
 
   function cache() {
     els.lobby = document.getElementById('lobbyScreen');
@@ -191,7 +192,11 @@ window.RTM.Lobby = (function () {
   function massBreakdown() {
     var gameState = RTM.Net ? RTM.Net.getState() : null;
     var players = (gameState && gameState.players) || {};
-    var crewMass = Object.keys(players).length * 80;
+    if (Object.keys(players).length === 0 && gameState && gameState.room && gameState.room.players) {
+      players = gameState.room.players;
+    }
+    var crewCount = Math.max(1, Object.keys(players).length);
+    var crewMass = crewCount * 80;
     var payload = payloadInfo(selectedPayload);
     var rocket = rocketInfo(selectedRocket);
     var food = currentFood();
@@ -207,6 +212,7 @@ window.RTM.Lobby = (function () {
       o2: o2,
       fuel: fuel,
       crew: crewMass,
+      crewCount: crewCount,
       total: total,
       max: rocket.maxMass
     };
@@ -263,6 +269,8 @@ window.RTM.Lobby = (function () {
         els.missionWarning.textContent = '';
       }
     }
+
+    updateVibeMeter(mass);
 
     if (RTM.Net && RTM.Net.getState().room) {
       var state = RTM.Net.getState();
@@ -404,7 +412,7 @@ window.RTM.Lobby = (function () {
       });
     }
 
-    var serverNetworkUrl = '';
+    serverNetworkUrl = '';
     var lanDisplay = document.getElementById('welcomeLanDisplay');
     if (lanDisplay) {
       if (location.protocol === 'file:') {
@@ -494,7 +502,7 @@ window.RTM.Lobby = (function () {
     }
   }
 
-  function updateVibeMeter(telemetry) {
+  function updateVibeMeter(massOrTelemetry) {
     var fill = document.getElementById('vibeFill');
     var badge = document.getElementById('vibeStatusBadge');
     var totalLabel = document.getElementById('vibeTotalLabel');
@@ -502,20 +510,26 @@ window.RTM.Lobby = (function () {
     var o2Label = document.getElementById('vibeO2Label');
     if (!fill || !badge) return;
 
-    telemetry = telemetry || (RTM.Net ? RTM.Net.getState().telemetry : {}) || {};
-    var maxMass = telemetry.maxMass || 1600;
-    var totalMass = telemetry.totalMass || 1100;
+    var mass = (massOrTelemetry && massOrTelemetry.total != null && massOrTelemetry.max != null)
+      ? massOrTelemetry
+      : massBreakdown();
+
+    var maxMass = mass.max || 1600;
+    var totalMass = mass.total || 0;
     var ratio = totalMass / maxMass;
     var percent = Math.min(100, Math.round(ratio * 100));
     fill.style.width = percent + '%';
 
     if (totalLabel) totalLabel.textContent = Math.round(totalMass) + ' / ' + Math.round(maxMass) + ' kg';
-    if (foodLabel) foodLabel.textContent = Math.round(telemetry.foodMass != null ? telemetry.foodMass : currentFood()) + ' kg';
-    if (o2Label) o2Label.textContent = Math.round(telemetry.o2Mass != null ? telemetry.o2Mass : currentO2()) + ' kg';
+    if (foodLabel) foodLabel.textContent = Math.round(mass.food) + ' kg';
+    if (o2Label) o2Label.textContent = Math.round(mass.o2) + ' kg';
+
+    var overBy = Math.max(0, totalMass - maxMass);
+    var penaltyPct = Math.round((totalMass / maxMass - 1) * 100);
 
     if (ratio > 1.0) {
       badge.className = 'vibe-badge vibe-overweight';
-      badge.textContent = '🔥 DANGEROUS OVERWEIGHT (+50% Fuel Burn)';
+      badge.textContent = '🔥 DANGEROUS OVERWEIGHT (+' + Math.max(1, penaltyPct) + '% Fuel Burn)';
       fill.style.background = '#c51111';
     } else if (ratio > 0.85) {
       badge.className = 'vibe-badge vibe-heavy';
@@ -598,9 +612,15 @@ window.RTM.Lobby = (function () {
 
   function renderPlayers() {
     if (!els.playerGrid) return;
-    var gameState = RTM.Net.getState();
+    var gameState = RTM.Net ? RTM.Net.getState() : {};
     var players = gameState.players || {};
+    if (Object.keys(players).length === 0 && gameState.room && gameState.room.players) {
+      players = gameState.room.players;
+    }
     var list = Object.keys(players).map(function (id) { return players[id]; });
+    if (list.length === 0 && gameState.room && Array.isArray(gameState.room.playerList)) {
+      list = gameState.room.playerList;
+    }
     list.sort(function (a, b) {
       if (a.id === RTM.Net.playerId) return -1;
       if (b.id === RTM.Net.playerId) return 1;
@@ -614,7 +634,7 @@ window.RTM.Lobby = (function () {
       els.playerGrid.appendChild(fillSlot(player, !!player && player.id === RTM.Net.playerId));
     }
     if (els.crewCount) els.crewCount.textContent = list.length + ' / 6';
-    var local = players[RTM.Net.playerId];
+    var local = players[RTM.Net.playerId] || (list.length > 0 ? list[0] : null);
     if (local && local.specialty && SPECIALTIES[local.specialty]) {
       localSpecialty = local.specialty;
     }

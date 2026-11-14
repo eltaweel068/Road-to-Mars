@@ -59,7 +59,7 @@ window.RTM.Net = (function () {
     players: {},
     telemetry: {
       fuel: 100, o2: 100, food: 100, science: 0, marsProgress: 0,
-      maxMass: 1080, totalMass: 0, crewMass: 0, aliveCount: 0,
+      maxMass: 1600, totalMass: 0, crewMass: 0, aliveCount: 0,
       ghostCount: 0, massPenalty: 1, starving: false, overloaded: false,
       hull: 100, autopilot: true, emergencyMode: null,
       water: 100, co2: 8, gyroDrift: 0, marsArrived: false
@@ -346,7 +346,7 @@ window.RTM.Net = (function () {
       }
       var t = state.telemetry;
       var payload = OFFLINE_PAYLOADS[state.settings.sciencePayload] || OFFLINE_PAYLOADS.medium;
-      t.maxMass = OFFLINE_LAUNCHERS[state.settings.rocket] || 1080;
+      t.maxMass = OFFLINE_LAUNCHERS[state.settings.rocket] || 1600;
       t.payloadMass = payload.mass;
       t.foodMass = Number(state.settings.foodMass) || 0;
       t.o2Mass = Number(state.settings.o2Mass) || 0;
