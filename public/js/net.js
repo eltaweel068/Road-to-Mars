@@ -265,7 +265,10 @@ window.RTM.Net = (function () {
 
     joinRoom: function () {
       if (!state.room) {
-        offline.createRoom();
+        dispatch('room:join:error', {
+          code: 'offline_mode',
+          message: 'Cannot join room in offline mode. Please open the game using the host\'s server URL (e.g. http://' + (location.hostname || 'YOUR_IP') + ':3000).'
+        });
         return;
       }
       dispatch('room:joined', {
@@ -883,7 +886,7 @@ window.RTM.Net = (function () {
         state.marsArrived = true;
         state.telemetry.marsArrived = true;
         dispatch('mars:arrived', {
-          message: '🪐 وصلت المركبة إلى مدار المريخ بسلام! يمكنك مواصلة المهام والطيران الحر!',
+          message: '🪐 Spacecraft has successfully reached Mars orbit! You may continue tasks and free flight!',
           telemetry: state.telemetry
         });
       }
@@ -1344,6 +1347,7 @@ window.RTM.Net = (function () {
     isAlive: isAlive,
     isGhost: isGhost,
     isPilot: isPilot,
+    isOffline: function () { return offlineMode || !socket || !socket.connected; },
     setScene: function (scene) { state.scene = scene; },
     setPhase: function (phase) { state.phase = phase; }
   };

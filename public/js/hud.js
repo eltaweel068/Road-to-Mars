@@ -623,7 +623,7 @@ window.RTM.HUD = (function () {
       });
 
       RTM.Net.on('mars:arrived', function (data) {
-        showNotification((data && data.message) || '🪐 وصلنا للمريخ بسلام! كمل مهامك وسواقة السفينة براحتك!', 'success', 7000);
+        showNotification((data && data.message) || '🪐 We have reached Mars orbit safely! Continue your tasks and enjoy free flight!', 'success', 7000);
         var taskBarText = document.getElementById('taskBarText') || document.querySelector('.taskbar-label');
         if (taskBarText) {
           taskBarText.textContent = '🪐 MARS ORBIT REACHED — FREE PLAY MODE (100%)';

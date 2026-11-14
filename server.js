@@ -2,6 +2,7 @@ import http from "node:http";
 import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
@@ -948,7 +949,7 @@ function telemetryTick(room) {
     room.marsArrived = true;
     telemetry.marsArrived = true;
     io.to(room.id).emit("mars:arrived", {
-      message: "🪐 وصلت المركبة إلى مدار المريخ بسلام! يمكنك مواصلة المهام والطيران الحر!",
+      message: "🪐 Spacecraft has successfully reached Mars orbit! You may continue tasks and free flight!",
       telemetry: room.telemetry,
     });
   }
@@ -2399,8 +2400,37 @@ app.get("/api/nasa-files", (req, res) => {
   }
 });
 
+function getLocalNetworkIp() {
+  try {
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        if (net.family === "IPv4" && !net.internal) {
+          return net.address;
+        }
+      }
+    }
+  } catch (_) {}
+  return "localhost";
+}
+
+app.get("/api/server-info", (req, res) => {
+  const localIp = getLocalNetworkIp();
+  res.json({
+    localIp,
+    port: PORT,
+    localUrl: `http://localhost:${PORT}`,
+    networkUrl: `http://${localIp}:${PORT}`,
+  });
+});
+
 server.listen(PORT, () => {
-  console.log(`Road to Mars server listening on port ${PORT}`);
+  const localIp = getLocalNetworkIp();
+  console.log(`\n================================================================`);
+  console.log(`🚀 Road to Mars server listening on port ${PORT}:`);
+  console.log(`   👉 Host (This PC):    http://localhost:${PORT}`);
+  console.log(`   👉 Friends on Wi-Fi:  http://${localIp}:${PORT}`);
+  console.log(`================================================================\n`);
 });
 
 function shutdown() {

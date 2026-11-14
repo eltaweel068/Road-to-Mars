@@ -61,6 +61,8 @@ window.RTM.Cockpit = (function () {
 
   var MODEL_BASE = '/assets/kenney_space-kit/Models/GLTF%20format/';
   var SHIP_URLS = [
+    MODEL_BASE + 'craft_speederD.glb',
+    MODEL_BASE + 'craft_racer.glb',
     MODEL_BASE + 'craft_speederA.glb',
     MODEL_BASE + 'craft_cargoA.glb'
   ];
@@ -1314,70 +1316,99 @@ window.RTM.Cockpit = (function () {
       '  <div id="cockpitLockonText" style="position:absolute; top:-22px; left:50%; transform:translateX(-50%); font-size:10px; font-weight:bold; color:#ff3344; white-space:nowrap; text-shadow:1px 1px 0 #000;">TARGET LOCK</div>' +
       '  <div id="cockpitLockonBar" style="position:absolute; bottom:-10px; left:0; width:100%; height:4px; background:#111; border:1px solid #000; border-radius:2px;"><div id="cockpitLockonFill" style="width:100%; height:100%; background:#50ef39;"></div></div>' +
       '</div>',
-      '<div id="cockpitWaveBanner" class="cockpit-banner" style="display:none; position:absolute; top:78px; left:50%; transform:translateX(-50%); background:rgba(197,17,17,0.92); border:3px solid #000; padding:10px 22px; border-radius:10px; font-weight:bold; z-index:10;"></div>',
-      '<div id="cockpitScanPopup" class="cockpit-scan-popup" style="display:none; position:absolute; top:140px; left:24px; max-width:320px; background:rgba(10,22,38,0.92); border:3px solid #38fedc; padding:10px 14px; border-radius:10px; z-index:10;"></div>',
+      '<div id="cockpitWaveBanner" class="cockpit-banner" style="display:none; position:absolute; top:78px; left:50%; transform:translateX(-50%); background:rgba(197,17,17,0.92); border:1px solid #ff3344; padding:8px 18px; border-radius:8px; font-weight:bold; z-index:10; box-shadow:0 0 16px rgba(255,51,68,0.5);"></div>',
+      '<div id="cockpitScanPopup" class="cockpit-scan-popup" style="display:none;"></div>',
       '<div id="cockpitGyroHud" class="cockpit-gyro-hud" title="Click or Press [Y] to Calibrate IMU Gyro">' +
       '  <div class="cockpit-gyro-header">' +
-      '    <span>3-AXIS IMU GYRO</span>' +
+      '    <span>IMU GYRO</span>' +
       '    <span id="cockpitGyroDriftBadge" style="color:#50ef39;">DRIFT: 0%</span>' +
       '  </div>' +
-      '  <canvas id="cockpitGyroCanvas" width="140" height="140"></canvas>' +
-      '  <div id="cockpitGyroDriftWarn" style="display:none;">⚠️ GYRO DRIFT DETECTED — PRESS [Y] TO CALIBRATE IMU</div>' +
+      '  <canvas id="cockpitGyroCanvas" width="90" height="90"></canvas>' +
+      '  <div id="cockpitGyroDriftWarn" style="display:none;">⚠️ DRIFT — [Y] CALIBRATE</div>' +
       '</div>',
       '<div class="cockpit-hud">',
       '  <div class="cockpit-top">',
       '    <div class="cockpit-badge">RTM FLIGHT DECK · 6-DOF</div>',
       '    <div class="cockpit-sensors-hud">' +
-      '      <div id="cockpitProximity" class="cockpit-sensor-box" style="color:#38fedc;">📡 PROXIMITY: CLEAR</div>' +
+      '      <div id="cockpitProximity" class="cockpit-sensor-box" style="color:#38fedc;">📡 PROX: CLEAR</div>' +
       '      <div id="cockpitFuelFlowWrap" class="cockpit-sensor-box" style="color:#ffb703;">' +
-      '        <span id="cockpitFuelFlow">⛽ FLOW: 0.0 L/s</span>' +
-      '        <button id="btnEmergencyFuelSynth" class="au-btn au-btn-yellow btn-sensor-synth" title="Emergency Sabatier Fuel Synthesis [R]">[R] FUEL SYNTH (+18%)</button>' +
+      '        <span id="cockpitFuelFlow">⛽ 0.0 L/s</span>' +
+      '        <button id="btnEmergencyFuelSynth" class="au-btn au-btn-yellow btn-sensor-synth" title="Emergency Sabatier Fuel Synthesis [R]">[R] SYNTH (+18%)</button>' +
       '      </div>' +
-      '      <div id="cockpitThermal" class="cockpit-sensor-box" style="color:#7fe7ff;">🌡 THERMAL: 280°C</div>' +
+      '      <div id="cockpitThermal" class="cockpit-sensor-box" style="color:#7fe7ff;">🌡 280°C</div>' +
       '    </div>',
-      '    <div id="cockpitMissileIndicator" style="background:#1d2133; border:2px solid #38fedc; border-radius:6px; padding:3px 10px; font-size:11px; font-weight:bold; color:#38fedc;">MISSILE: READY [R-CLICK / G]</div>',
+      '    <div id="cockpitMissileIndicator" style="background:rgba(15,23,38,0.85); border:1px solid #38fedc; border-radius:6px; padding:4px 10px; font-size:10px; font-weight:bold; color:#38fedc; backdrop-filter:blur(8px);">MISSILE: READY [R-CLICK / G]</div>',
       '    <div class="cockpit-orbital" id="cockpitOrbital">HOHMANN TRANSFER</div>',
       '  </div>',
       '  <div class="cockpit-crosshair" id="cockpitCrosshair">⌖</div>',
       '  <div class="cockpit-targets" id="cockpitTargets">',
       '    <div class="cockpit-target-box" id="targetMoon">',
-      '      <span class="target-name">MOON · CAPTURE RING [L TO LAND]</span>',
+      '      <span class="target-name">MOON [L]</span>',
       '      <span class="target-dist" id="distMoon">-- KM</span>',
       '    </div>',
       '    <div class="cockpit-target-box" id="targetMars">',
-      '      <span class="target-name">MARS · DESTINATION</span>',
+      '      <span class="target-name">MARS</span>',
       '      <span class="target-dist" id="distMars">-- KM</span>',
       '    </div>',
       '    <div class="cockpit-target-box cockpit-gate-box">',
-      '      <span class="target-name">TRAJECTORY GATES</span>',
+      '      <span class="target-name">GATES</span>',
       '      <span class="target-dist" id="cockpitGateValue">0 / 5</span>',
       '    </div>',
       '  </div>',
-      '  <div class="cockpit-dashboard">',
-      '    <div class="cockpit-readouts">',
-      '      <div class="cockpit-readout"><span>HULL</span><strong id="cockpitHull">100%</strong></div>',
-      '      <div class="cockpit-readout"><span>FUEL</span><strong id="cockpitFuel">100%</strong></div>',
-      '      <div class="cockpit-readout"><span>O2</span><strong id="cockpitO2">100%</strong></div>',
-      '      <div class="cockpit-readout"><span>VELOCITY</span><strong id="cockpitSpeedValue">0.0</strong></div>',
-      '      <div class="cockpit-readout"><span>HEADING</span><strong id="cockpitHeadingValue">000°</strong></div>',
-      '      <div class="cockpit-readout"><span>PITCH</span><strong id="cockpitPitchValue">0°</strong></div>',
-      '      <div class="cockpit-readout"><span>ROLL</span><strong id="cockpitRollValue">0°</strong></div>',
-      '      <div class="cockpit-readout"><span>THROTTLE</span><strong id="cockpitThrottleValue">0%</strong></div>',
-      '      <div class="cockpit-readout"><span>CAMERA</span><strong id="cockpitCamMode">CHASE (C)</strong></div>',
-      '      <div class="cockpit-navball-wrap"><canvas id="cockpitNavball" width="96" height="96"></canvas><span>NAVBALL</span></div>',
+      '  <div class="cockpit-dashboard" id="cockpitDashboard">',
+      '    <div class="cockpit-dash-main">',
+      '      <!-- Vitals: HULL, FUEL, O2 with mini glowing bars -->',
+      '      <div class="cockpit-vitals-deck">',
+      '        <div class="cockpit-vital-chip" title="Ship Hull Integrity">',
+      '          <div class="vital-label">HULL</div>',
+      '          <strong class="vital-val" id="cockpitHull">100%</strong>',
+      '          <div class="vital-track"><div class="vital-bar bar-hull" id="cockpitHullBar" style="width:100%;"></div></div>',
+      '        </div>',
+      '        <div class="cockpit-vital-chip" title="Propellant Reserves">',
+      '          <div class="vital-label">FUEL</div>',
+      '          <strong class="vital-val" id="cockpitFuel">100%</strong>',
+      '          <div class="vital-track"><div class="vital-bar bar-fuel" id="cockpitFuelBar" style="width:100%;"></div></div>',
+      '        </div>',
+      '        <div class="cockpit-vital-chip" title="ECLSS Oxygen Level">',
+      '          <div class="vital-label">O2</div>',
+      '          <strong class="vital-val" id="cockpitO2">100%</strong>',
+      '          <div class="vital-track"><div class="vital-bar bar-o2" id="cockpitO2Bar" style="width:100%;"></div></div>',
+      '        </div>',
+      '      </div>',
+      '      <!-- Speed & Vector Display -->',
+      '      <div class="cockpit-speed-deck">',
+      '        <div class="speed-readout">',
+      '          <span class="speed-kicker">VELOCITY</span>',
+      '          <span class="speed-display" id="cockpitSpeedValue">0.0</span>',
+      '        </div>',
+      '        <div class="attitude-cluster">',
+      '          <span class="att-item">HDG <b id="cockpitHeadingValue">180°</b></span>',
+      '          <span class="att-item">P <b id="cockpitPitchValue">0°</b></span>',
+      '          <span class="att-item">R <b id="cockpitRollValue">0°</b></span>',
+      '        </div>',
+      '      </div>',
+      '      <!-- Throttle & Engine Output -->',
+      '      <div class="cockpit-throttle-deck">',
+      '        <div class="throttle-title">',
+      '          <span>THROTTLE [1-5]</span>',
+      '          <strong id="cockpitThrottleValue">0%</strong>',
+      '        </div>',
+      '        <input type="range" id="cockpitThrottle" min="0" max="100" step="1" value="0" class="cockpit-neon-slider">',
+      '      </div>',
+      '      <!-- Action Buttons & Collapse Toggle -->',
+      '      <div class="cockpit-actions-deck">',
+      '        <button type="button" class="cockpit-btn btn-cam" id="cockpitCameraBtn" title="Toggle Camera (C)">🎥 <span id="cockpitCamMode">CHASE (C)</span></button>',
+      '        <button type="button" class="cockpit-btn btn-land" id="cockpitLandBtn" title="Land on Moon (L)">🌕 LAND (L)</button>',
+      '        <button type="button" class="cockpit-btn btn-leave" id="cockpitLeaveBtn" title="Leave Controls (ESC)">⏏ EXIT</button>',
+      '        <button type="button" class="cockpit-btn btn-toggle-dash" id="cockpitToggleDash" title="Minimize / Expand Dashboard">▾</button>',
+      '      </div>',
       '    </div>',
-      '    <div class="cockpit-controls">',
-      '      <label class="cockpit-slider-label">THROTTLE · SHIFT / CTRL · 1–5',
-      '        <input type="range" id="cockpitThrottle" min="0" max="100" step="1" value="0">',
-      '      </label>',
-      '      <div class="cockpit-control-help">W/S PITCH · A/D YAW · Q/E ROLL<br>B AFTERBURNER · SPACE FIRE LASERS · C CAMERA · L LAND</div>',
+      '    <!-- Subtle Single-Line Flight Strip -->',
+      '    <div class="cockpit-dash-sub" id="cockpitDashSub">',
+      '      <span class="hint-tag">FLIGHT CONTROLS</span> W/S pitch · A/D yaw · Q/E roll · SPACE lasers · B boost',
+      '      <span class="dash-status-dot" id="cockpitStatus">Flight deck online · 6-DOF RCS active</span>',
       '    </div>',
-      '    <div class="cockpit-buttons">',
-      '      <button class="au-btn au-btn-blue" id="cockpitCameraBtn">CAM: CHASE (C)</button>',
-      '      <button class="au-btn au-btn-yellow" id="cockpitLandBtn">LAND ON MOON (L)</button>',
-      '      <button class="au-btn au-btn-gray" id="cockpitLeaveBtn">LEAVE CONTROLS (ESC)</button>',
-      '    </div>',
-      '    <div class="cockpit-status" id="cockpitStatus">Flight deck online. W/S pitch · A/D yaw · Q/E roll · SHIFT/CTRL throttle · B afterburner · SPACE fire lasers.</div>',
+      '    <div style="display:none;"><canvas id="cockpitNavball" width="32" height="32"></canvas></div>',
       '  </div>',
       '</div>'
     ].join('');
@@ -1409,6 +1440,19 @@ window.RTM.Cockpit = (function () {
     els.fuelFlow = document.getElementById('cockpitFuelFlow');
     els.btnEmergencyFuelSynth = document.getElementById('btnEmergencyFuelSynth');
     els.thermal = document.getElementById('cockpitThermal');
+    els.hullBar = document.getElementById('cockpitHullBar');
+    els.fuelBar = document.getElementById('cockpitFuelBar');
+    els.o2Bar = document.getElementById('cockpitO2Bar');
+    els.dashboard = document.getElementById('cockpitDashboard');
+    els.toggleDash = document.getElementById('cockpitToggleDash');
+
+    if (els.toggleDash && els.dashboard) {
+      els.toggleDash.addEventListener('click', function () {
+        var isMin = els.dashboard.classList.toggle('minimized');
+        els.toggleDash.textContent = isMin ? '▴' : '▾';
+        els.toggleDash.title = isMin ? 'Expand Dashboard' : 'Minimize Dashboard';
+      });
+    }
 
     if (els.gyroHud) {
       els.gyroHud.addEventListener('click', calibrateGyro);
@@ -1817,6 +1861,19 @@ window.RTM.Cockpit = (function () {
     shipGroup.position.set(0, 0, 180);
     scene.add(shipGroup);
     loadFirstModel(SHIP_URLS, function (model) {
+      model.traverse(function (child) {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          var oldColor = (child.material && child.material.color) ? child.material.color.getHex() : 0x3d4b68;
+          child.material = new THREE.MeshStandardMaterial({
+            color: oldColor,
+            metalness: 0.82,
+            roughness: 0.24,
+            envMapIntensity: 1.6
+          });
+        }
+      });
       var wrapper = new THREE.Group();
       wrapper.rotation.y = Math.PI;
       wrapper.add(normalizeModel(model, 20));
@@ -2388,8 +2445,16 @@ window.RTM.Cockpit = (function () {
     var hull = telemetry.hull != null ? telemetry.hull : 100;
 
     if (els.fuel) els.fuel.textContent = Math.round(fuel) + '%';
+    if (els.fuelBar) els.fuelBar.style.width = Math.max(0, Math.min(100, fuel)) + '%';
     if (els.o2) els.o2.textContent = Math.round(o2) + '%';
+    if (els.o2Bar) els.o2Bar.style.width = Math.max(0, Math.min(100, o2)) + '%';
     if (els.hull) els.hull.textContent = Math.round(hull) + '%';
+    if (els.hullBar) {
+      els.hullBar.style.width = Math.max(0, Math.min(100, hull)) + '%';
+      if (hull < 30) els.hullBar.style.background = '#ff2244';
+      else if (hull < 60) els.hullBar.style.background = '#ffaa00';
+      else els.hullBar.style.background = '#00f0ff';
+    }
     if (els.headingValue) els.headingValue.textContent = String((Math.round(normalizeDeg(-yaw * 180 / Math.PI)) + 180) % 360).padStart(3, '0') + '°';
     if (els.pitchValue) els.pitchValue.textContent = Math.round(pitch * 180 / Math.PI) + '°';
     if (els.rollValue) els.rollValue.textContent = Math.round(normalizeDeg((manualRoll + autoRoll) * 180 / Math.PI)) + '°';

@@ -60,12 +60,15 @@
             <div class="choice-badge badge-join">JOIN</div>
             <div class="choice-icon">🔑</div>
             <h2 class="choice-title">JOIN BY CODE</h2>
-            <p class="choice-desc">Enter the 6-character room code provided by your commander to report for duty in the engineering bay.</p>
+            <p class="choice-desc">Enter the 6-character room code from your commander. To play together across different PCs, connect to the host's server URL!</p>
             <div class="welcome-join-inputs">
               <input type="text" id="welcomeRoomCodeInput" class="au-input welcome-input-code" maxlength="6" placeholder="ROOM CODE">
               <button type="button" id="welcomeJoinRoomBtn" class="au-btn au-btn-blue welcome-action-btn">
                 <span class="btn-icon">🚪</span> JOIN MISSION
               </button>
+            </div>
+            <div id="welcomeLanHelp" style="font-size:11px;color:#8395b8;margin-top:8px;line-height:1.4;">
+              💡 Playing with a friend? Both must connect to the same server URL (e.g. <span id="welcomeLanDisplay" style="color:#38fedc;font-family:monospace;">loading...</span>).
             </div>
           </div>
         </div>
@@ -96,10 +99,14 @@
             <span class="room-code-label">ROOM CODE</span>
             <div class="room-code-row">
               <span id="roomCode" class="room-code">????</span>
-              <button type="button" id="copyRoomCodeBtn" class="au-btn au-btn-blue copy-code-btn" title="Copy Room Code">
-                📋 COPY
+              <button type="button" id="copyRoomCodeBtn" class="au-btn au-btn-blue copy-code-btn" title="Copy 6-letter Room Code">
+                📋 CODE
+              </button>
+              <button type="button" id="copyInviteLinkBtn" class="au-btn au-btn-green copy-code-btn" title="Copy Direct Invite Link for Friends">
+                🔗 LINK
               </button>
             </div>
+            <div id="lanInviteHint" class="lan-invite-hint" style="font-size:11px;color:#8395b8;margin-top:4px;text-align:right;"></div>
           </div>
         </div>
 

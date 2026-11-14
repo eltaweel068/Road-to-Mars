@@ -387,17 +387,47 @@ window.RTM.Lobby = (function () {
     if (joinBtn && codeInput) {
       joinBtn.addEventListener('click', function () {
         var code = codeInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-        if (code.length >= 4) {
-          var name = (nameInput ? nameInput.value.trim() : '') || storedName || 'Explorer';
-          RTM.Net.emit('player:register', { name: name, color: storedColor });
-          RTM.Net.emit('room:join', { roomId: code });
-        } else {
+        if (!code || code.length < 4) {
           alert('Please enter a valid 4 to 6 character Room Code!');
+          return;
         }
+        if (RTM.Net && RTM.Net.isOffline && RTM.Net.isOffline()) {
+          alert('⚠️ You are currently in OFFLINE mode!\n\nTo play multiplayer with your friend, make sure you open the game via your browser using the host’s server link (e.g. http://192.168.1.14:3000), not as a local file.');
+          return;
+        }
+        var name = (nameInput ? nameInput.value.trim() : '') || storedName || 'Explorer';
+        RTM.Net.emit('player:register', { name: name, color: storedColor });
+        RTM.Net.emit('room:join', { roomId: code });
       });
       codeInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') joinBtn.click();
       });
+    }
+
+    var serverNetworkUrl = '';
+    var lanDisplay = document.getElementById('welcomeLanDisplay');
+    if (lanDisplay) {
+      if (location.protocol === 'file:') {
+        lanDisplay.textContent = 'file:/// (Offline Mode)';
+      } else {
+        lanDisplay.textContent = location.origin;
+        fetch('/api/server-info')
+          .then(function (r) { return r.json(); })
+          .then(function (info) {
+            if (info && info.networkUrl) {
+              serverNetworkUrl = info.networkUrl;
+              lanDisplay.textContent = info.networkUrl;
+              var lanHint = document.getElementById('lanInviteHint');
+              if (lanHint && RTM.Net && RTM.Net.getState().room) {
+                var code = RTM.Net.getState().room.code || RTM.Net.getState().room.id || '';
+                if (code) {
+                  lanHint.innerHTML = 'Direct Invite: <span style="color:#38fedc;font-family:monospace;cursor:pointer;" title="Click to copy">' + serverNetworkUrl + '/?room=' + code + '</span>';
+                }
+              }
+            }
+          })
+          .catch(function () {});
+      }
     }
 
     if (archiveBtn) {
@@ -431,8 +461,33 @@ window.RTM.Lobby = (function () {
               RTM.HUD.showNotification('Room code ' + code + ' copied to clipboard!', 'success');
             }
             setTimeout(function () {
-              copyBtn.textContent = '📋 COPY';
+              copyBtn.textContent = '📋 CODE';
             }, 2000);
+          });
+        }
+      });
+    }
+
+    var copyLinkBtn = document.getElementById('copyInviteLinkBtn');
+    if (copyLinkBtn) {
+      copyLinkBtn.addEventListener('click', function () {
+        var room = RTM.Net.getState().room;
+        var code = room ? (room.code || room.id || '') : '';
+        if (!code) return;
+        var hostOrigin = location.origin;
+        if ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') && serverNetworkUrl) {
+          hostOrigin = serverNetworkUrl;
+        }
+        var inviteUrl = hostOrigin + '/?room=' + code;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(inviteUrl).then(function () {
+            copyLinkBtn.textContent = 'LINK COPIED! ✅';
+            if (RTM.HUD && RTM.HUD.showNotification) {
+              RTM.HUD.showNotification('🔗 Direct invite link copied: ' + inviteUrl + ' (Send to your friend!)', 'success', 7000);
+            }
+            setTimeout(function () {
+              copyLinkBtn.textContent = '🔗 LINK';
+            }, 2500);
           });
         }
       });
@@ -581,7 +636,22 @@ window.RTM.Lobby = (function () {
     var gameState = RTM.Net ? RTM.Net.getState() : null;
     if (!gameState) return;
     var room = gameState.room;
-    if (els.roomCode) els.roomCode.textContent = room ? (room.code || room.id || '????') : '????';
+    var code = room ? (room.code || room.id || '????') : '????';
+    if (els.roomCode) els.roomCode.textContent = code;
+    var lanHint = document.getElementById('lanInviteHint');
+    if (lanHint) {
+      if (room && code !== '????') {
+        var hostOrigin = ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') && serverNetworkUrl) ? serverNetworkUrl : location.origin;
+        var inviteUrl = hostOrigin + '/?room=' + code;
+        lanHint.innerHTML = 'Direct Invite: <span style="color:#38fedc;font-family:monospace;cursor:pointer;" title="Click to copy">' + inviteUrl + '</span>';
+        lanHint.onclick = function () {
+          var copyLinkBtn = document.getElementById('copyInviteLinkBtn');
+          if (copyLinkBtn) copyLinkBtn.click();
+        };
+      } else {
+        lanHint.textContent = '';
+      }
+    }
     syncControlsFromRoom(room, gameState.telemetry);
     renderPlayers();
     renderEngineering();
@@ -619,6 +689,11 @@ window.RTM.Lobby = (function () {
     var params = new URLSearchParams(location.search);
     var code = (params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (code.length >= 4) {
+      var codeInput = document.getElementById('welcomeRoomCodeInput');
+      if (codeInput) codeInput.value = code;
+      if (RTM.HUD && RTM.HUD.showNotification) {
+        RTM.HUD.showNotification('Auto-joining room ' + code + ' from link...', 'info', 4000);
+      }
       RTM.Net.emit('room:join', { roomId: code });
     }
   }
@@ -731,8 +806,18 @@ window.RTM.Lobby = (function () {
       clearTimeout(joinTimer);
       render();
     });
-    RTM.Net.on('room:join:error', function () {
-      if (!RTM.Net.getState().room) createRoom();
+    RTM.Net.on('room:join:error', function (err) {
+      clearTimeout(joinTimer);
+      var msg = (err && err.message) || 'Room not found. Please verify the 6-character room code!';
+      if (RTM.HUD && RTM.HUD.showNotification) {
+        RTM.HUD.showNotification('❌ ' + msg, 'error', 7000);
+      }
+      alert('⚠️ Could not join room: ' + msg + '\n\nMake sure your commander created the room on this server, and check that the 6-letter room code is typed correctly.');
+      var codeInput = document.getElementById('welcomeRoomCodeInput');
+      if (codeInput) {
+        codeInput.focus();
+        codeInput.select();
+      }
     });
     RTM.Net.on('room:updated', render);
     RTM.Net.on('state:snapshot', render);
