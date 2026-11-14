@@ -27,6 +27,17 @@ const BOT_TICK_MS = 250;
 const TELEMETRY_TICK_MS = 1000;
 const MAX_NAME_LENGTH = 20;
 const MAX_MESSAGE_LENGTH = 200;
+const DEFAULT_FUEL_MASS = 250;
+const FUEL_MASS_MIN = 50;
+const FUEL_MASS_MAX = 400;
+const CREW_SPECIALTIES = new Set([
+  "pilot",
+  "o2",
+  "chef",
+  "propulsion",
+  "scientist",
+  "electrical",
+]);
 const WORLD = { minX: 0, maxX: 3200, minY: 0, maxY: 2000 };
 const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -181,6 +192,7 @@ function createTelemetry(
   sciencePayload = "medium",
   foodMass = 160,
   o2Mass = 150,
+  fuelMass = DEFAULT_FUEL_MASS,
 ) {
   const payload = SCIENCE_PAYLOADS[sciencePayload] ?? SCIENCE_PAYLOADS.medium;
   return {
@@ -190,6 +202,7 @@ function createTelemetry(
     payloadMass: payload.mass,
     foodMass,
     o2Mass,
+    fuelMass,
     o2: o2Mass > 0 ? 100 : 0,
     food: foodMass > 0 ? 100 : 0,
     fuel: 100,
@@ -242,6 +255,7 @@ function createRoom(hostPlayer, roomId) {
       sciencePayload: "medium",
       foodMass: 160,
       o2Mass: 150,
+      fuelMass: DEFAULT_FUEL_MASS,
     },
     telemetry: createTelemetry(),
     taskState: { progress: 0, completions: 0, byTask: {} },
@@ -293,6 +307,7 @@ function createPlayer(room, profile, isBot, socket) {
     d: "right",
     moving: false,
     scene: "ship",
+    specialty: "crew",
     spawnIndex,
     lastMoveAt: 0,
     lastKillAt: 0,
@@ -338,6 +353,7 @@ function recomputeTelemetry(room) {
     telemetry.payloadMass +
     telemetry.foodMass +
     telemetry.o2Mass +
+    (telemetry.fuelMass ?? DEFAULT_FUEL_MASS) +
     alive.length * CREW_MASS;
   telemetry.totalMass = round(totalMass);
   telemetry.crewMass = alive.length * CREW_MASS;
@@ -381,6 +397,7 @@ function publicPlayer(player, revealRoles = false) {
     direction: player.direction,
     moving: player.moving,
     scene: player.scene,
+    specialty: player.specialty || "crew",
   };
   if (revealRoles) result.isImposter = player.isImposter;
   return result;
@@ -1236,6 +1253,33 @@ function connectSocket(socket) {
     socket.emit("player:unregistered");
   });
 
+  handle("player:specialty", (data) => {
+    const room = rooms.get(socket.data.roomId);
+    const player = room?.players.get(socket.id);
+    if (!room || !player) {
+      sendError(socket, "no_room", "Join a room first.");
+      return;
+    }
+    if (room.phase !== "lobby") {
+      sendError(socket, "invalid_phase", "Specialties can only be changed before launch.");
+      return;
+    }
+    const specialty = String(data?.specialty ?? "");
+    if (!CREW_SPECIALTIES.has(specialty)) {
+      sendError(socket, "invalid_specialty", "Unknown crew specialty.");
+      return;
+    }
+    player.specialty = specialty;
+    io.to(room.id).emit("player:specialty", {
+      roomId: room.id,
+      playerId: player.id,
+      player: publicPlayer(player),
+      specialty,
+      serverTime: now(),
+    });
+    roomBroadcast(room);
+  });
+
   handle("player:disconnect", () => {
     leaveRoom(socket, "player-disconnect");
   });
@@ -1427,6 +1471,7 @@ function connectSocket(socket) {
     );
     const foodMass = Number(data?.foodMass ?? room.settings.foodMass);
     const o2Mass = Number(data?.o2Mass ?? room.settings.o2Mass);
+    const fuelMass = Number(data?.fuelMass ?? room.settings.fuelMass);
     if (!Object.hasOwn(LAUNCHERS, rocket)) {
       sendError(socket, "invalid_rocket", "Unknown launcher.");
       return;
@@ -1443,16 +1488,26 @@ function connectSocket(socket) {
       sendError(socket, "invalid_o2_mass", "O2 mass must be between 0 and 500 kg.");
       return;
     }
+    if (!Number.isFinite(fuelMass) || fuelMass < FUEL_MASS_MIN || fuelMass > FUEL_MASS_MAX) {
+      sendError(
+        socket,
+        "invalid_fuel_mass",
+        `Fuel reserve must be between ${FUEL_MASS_MIN} and ${FUEL_MASS_MAX} kg.`,
+      );
+      return;
+    }
     room.settings.rocket = rocket;
     room.settings.sciencePayload = sciencePayload;
     room.settings.foodMass = foodMass;
     room.settings.o2Mass = o2Mass;
+    room.settings.fuelMass = fuelMass;
     const payload = SCIENCE_PAYLOADS[sciencePayload];
     room.telemetry.launcher = rocket;
     room.telemetry.maxMass = LAUNCHERS[rocket];
     room.telemetry.payloadMass = payload.mass;
     room.telemetry.foodMass = foodMass;
     room.telemetry.o2Mass = o2Mass;
+    room.telemetry.fuelMass = fuelMass;
     room.telemetry.food = foodMass > 0 ? 100 : 0;
     room.telemetry.o2 = o2Mass > 0 ? 100 : 0;
     room.telemetry.science = payload.science;
@@ -1462,6 +1517,7 @@ function connectSocket(socket) {
       settings: { ...room.settings },
       telemetry: { ...room.telemetry },
       by: player.id,
+      byName: player.name,
       serverTime: now(),
     });
     emitTelemetry(room);
@@ -1527,6 +1583,10 @@ function connectSocket(socket) {
       player.botWaypoint = null;
     }
     const payload = SCIENCE_PAYLOADS[room.settings.sciencePayload];
+    room.telemetry.payloadMass = payload.mass;
+    room.telemetry.foodMass = room.settings.foodMass;
+    room.telemetry.o2Mass = room.settings.o2Mass;
+    room.telemetry.fuelMass = room.settings.fuelMass;
     room.telemetry.o2 = room.telemetry.o2Mass > 0 ? 100 : 0;
     room.telemetry.food = room.telemetry.foodMass > 0 ? 100 : 0;
     room.telemetry.fuel = 100;

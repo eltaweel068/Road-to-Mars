@@ -19,6 +19,14 @@ window.RTM.Tasks = (function () {
 
   var SAMPLE_LABELS = ['ALPHA', 'BETA', 'GAMMA', 'DELTA', 'OMEGA'];
 
+  var TASK_REWARDS = {
+    wires: '⚡ WIRES FIXED: +8% FUEL & POWER!',
+    o2_filter: '🫧 O2 SCRUBBED: +12% OXYGEN!',
+    nav: '🧭 NAV LOCKED: +3% MARS PROGRESS!',
+    cargo: '⚖️ CARGO SECURED: -15 KG MASS!',
+    science: '🔬 SCIENCE DATA: +25 RESEARCH!'
+  };
+
   var els = {};
   var currentTask = null;
   var open = false;
@@ -101,6 +109,9 @@ window.RTM.Tasks = (function () {
     completed = true;
     feedback('TASK COMPLETE', 'success');
     RTM.Net.emit('task:complete', { taskId: currentTask });
+    if (RTM.HUD && RTM.HUD.showNotification) {
+      RTM.HUD.showNotification(TASK_REWARDS[currentTask] || 'TASK COMPLETE!', 'success', 'engineering');
+    }
     closeTimer = setTimeout(function () {
       closeTimer = null;
       close();

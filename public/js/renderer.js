@@ -346,6 +346,88 @@
     return null;
   }
 
+  // ── Crewmate Specialty Hats ─────────────────────────────────
+  function drawCrewHat(ctx, hat, bw, bh) {
+    if (!hat || hat === 'crew') return;
+    const top = -bh / 2 - 8;
+    ctx.save();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#000';
+    if (hat === 'pilot') {
+      ctx.fillStyle = '#1b2a46';
+      ctx.beginPath();
+      ctx.ellipse(2, top + 5, 17, 9, 0, Math.PI, 0);
+      ctx.lineTo(19, top + 9);
+      ctx.lineTo(-14, top + 9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#f5c542';
+      roundRect(ctx, -13, top + 3, 27, 6, 3);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#72e7ff';
+      ctx.beginPath();
+      ctx.arc(5, top + 6, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (hat === 'o2' || hat === 'propulsion') {
+      ctx.fillStyle = hat === 'o2' ? 'rgba(159, 239, 255, 0.35)' : 'rgba(239, 125, 13, 0.4)';
+      ctx.beginPath();
+      ctx.arc(2, top + 9, 19, Math.PI * 0.95, Math.PI * 2.05);
+      ctx.lineTo(21, top + 10);
+      ctx.quadraticCurveTo(0, top - 5, -17, top + 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = hat === 'o2' ? '#9fefff' : '#ffb45b';
+      ctx.fillRect(-12, top + 8, 28, 3);
+      ctx.strokeRect(-12, top + 8, 28, 3);
+    } else if (hat === 'chef') {
+      ctx.fillStyle = '#f4f4f4';
+      ctx.beginPath();
+      ctx.arc(-9, top + 4, 7, 0, Math.PI * 2);
+      ctx.arc(2, top - 1, 8, 0, Math.PI * 2);
+      ctx.arc(13, top + 4, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(-14, top + 4, 28, 8);
+      ctx.stroke();
+      ctx.fillStyle = '#e0e0e0';
+      ctx.fillRect(-14, top + 9, 28, 4);
+      ctx.strokeRect(-14, top + 9, 28, 4);
+    } else if (hat === 'scientist') {
+      ctx.fillStyle = '#eef8ff';
+      ctx.beginPath();
+      ctx.ellipse(2, top + 7, 18, 8, 0, Math.PI, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#71491e';
+      ctx.fillRect(-16, top + 5, 36, 3);
+      ctx.strokeRect(-16, top + 5, 36, 3);
+      ctx.strokeStyle = '#72e7ff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(-4, top + 12, 4.5, Math.PI, 0);
+      ctx.moveTo(1, top + 9);
+      ctx.lineTo(4, top + 9);
+      ctx.arc(8, top + 12, 4.5, Math.PI, 0);
+      ctx.stroke();
+    } else if (hat === 'electrical') {
+      ctx.fillStyle = '#f5c542';
+      ctx.beginPath();
+      ctx.ellipse(2, top + 8, 18, 7, 0, Math.PI, 0);
+      ctx.lineTo(20, top + 11);
+      ctx.lineTo(-16, top + 11);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#38fedc';
+      ctx.fillRect(-2, top - 2, 4, 8);
+      ctx.strokeRect(-2, top - 2, 4, 8);
+    }
+    ctx.restore();
+  }
+
   // ── Crewmate Bean Drawing (Authentic Style) ─────────────────
   function drawCrewmate(ctx, x, y, color, options) {
     options = options || {};
@@ -457,6 +539,9 @@
     ctx.beginPath();
     ctx.ellipse(bw / 2 - 6, -bh / 2 + 10, 4, 2, -0.3, 0, Math.PI * 2);
     ctx.fill();
+
+    // Specialty hat
+    drawCrewHat(ctx, options.hat, bw, bh);
 
     ctx.restore();
   }
@@ -1033,7 +1118,8 @@
         direction: p.direction || p.d || 'right',
         moving: !!p.moving,
         ghost: !!p.ghost,
-        dead: !p.alive
+        dead: !p.alive,
+        hat: p.specialty
       });
 
       // Name Tag
@@ -1052,7 +1138,8 @@
         direction: localP.direction || localP.d || 'right',
         moving: !!localP.moving,
         ghost: isGhost,
-        dead: !localP.alive
+        dead: !localP.alive,
+        hat: localP.specialty
       });
 
       ctx.fillStyle = '#38fedc';

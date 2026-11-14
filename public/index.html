@@ -18,67 +18,143 @@
   <!-- UI layer: all HTML overlays sit here -->
   <div id="uiLayer">
 
-    <!-- ===== LOBBY ===== -->
+    <!-- ===== LOBBY / COLLABORATIVE ENGINEERING BAY ===== -->
     <div id="lobbyScreen" class="screen">
-      <div class="au-panel lobby-panel">
-        <h1 class="lobby-title">ROAD TO MARS</h1>
-        <div class="room-code-wrap">
-          <span class="room-code-label">ROOM CODE</span>
-          <span id="roomCode" class="room-code">????</span>
+      <div class="au-panel lobby-panel hangar-panel">
+        <div class="hangar-header">
+          <div>
+            <div class="hangar-kicker">NASA PRE-LAUNCH ENGINEERING BAY</div>
+            <h1 class="lobby-title">ROAD TO MARS</h1>
+            <p class="hangar-subtitle">Every crew member can tune the mission. Changes sync live for the whole room.</p>
+          </div>
+          <div class="room-code-wrap">
+            <span class="room-code-label">ROOM CODE</span>
+            <span id="roomCode" class="room-code">????</span>
+          </div>
         </div>
 
-        <div class="player-grid" id="playerGrid">
-          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
-          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
-          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
-          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
-          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
-          <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
-        </div>
-
-        <div class="lobby-config">
-          <h2 class="config-heading">MISSION CONFIG</h2>
-
-          <div class="config-section">
-            <span class="config-label">ROCKET</span>
-            <div class="tab-row" id="rocketTabs">
-              <button class="au-btn au-btn-gray tab-btn active" data-rocket="0">ATLAS</button>
-              <button class="au-btn au-btn-gray tab-btn" data-rocket="1">TITAN</button>
-              <button class="au-btn au-btn-gray tab-btn" data-rocket="2">SATURN</button>
+        <div class="hangar-grid">
+          <section class="hangar-left">
+            <div class="section-heading">
+              <span>CREW MANIFEST</span>
+              <span id="crewCount" class="section-meta">1 / 6</span>
             </div>
-          </div>
-
-          <div class="config-section">
-            <span class="config-label">PAYLOAD</span>
-            <div class="tab-row" id="payloadTabs">
-              <button class="au-btn au-btn-gray tab-btn active" data-payload="0">ROVER</button>
-              <button class="au-btn au-btn-gray tab-btn" data-payload="1">HABITAT</button>
-              <button class="au-btn au-btn-gray tab-btn" data-payload="2">DRILL</button>
+            <div class="player-grid" id="playerGrid">
+              <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
+              <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
+              <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
+              <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
+              <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
+              <div class="player-slot empty"><span class="slot-label">EMPTY</span></div>
             </div>
-          </div>
 
-          <div class="config-section">
-            <span class="config-label">FOOD <span id="foodVal" class="slider-val">100 kg</span></span>
-            <input type="range" id="foodSlider" class="au-slider" min="0" max="500" value="100">
-          </div>
+            <div class="config-section specialty-section">
+              <span class="config-label">YOUR CREW SPECIALTY</span>
+              <div id="specialtyPicker" class="specialty-picker">
+                <button type="button" class="specialty-btn active" data-specialty="pilot"><span class="specialty-hat">✈</span><span>PILOT &amp; NAVIGATOR</span></button>
+                <button type="button" class="specialty-btn" data-specialty="o2"><span class="specialty-hat">◌</span><span>O2 &amp; LIFE SUPPORT</span></button>
+                <button type="button" class="specialty-btn" data-specialty="chef"><span class="specialty-hat">♨</span><span>ROMY CHEESE QUARTERMASTER</span></button>
+                <button type="button" class="specialty-btn" data-specialty="propulsion"><span class="specialty-hat">▲</span><span>FLIGHT MASS &amp; PROPULSION</span></button>
+                <button type="button" class="specialty-btn" data-specialty="scientist"><span class="specialty-hat">✦</span><span>CHIEF SCIENTIST</span></button>
+                <button type="button" class="specialty-btn" data-specialty="electrical"><span class="specialty-hat">ϟ</span><span>ELECTRICAL ENGINEER</span></button>
+              </div>
+            </div>
 
-          <div class="config-section">
-            <span class="config-label">OXYGEN <span id="o2Val" class="slider-val">100 kg</span></span>
-            <input type="range" id="o2Slider" class="au-slider" min="0" max="500" value="100">
-          </div>
+            <div class="mission-note">
+              <strong>COLLABORATIVE DESIGN:</strong> launchers, payloads, supplies and fuel below can be changed by
+              any player in the room. The host launches when the mission is ready.
+            </div>
+          </section>
 
-          <div class="mass-budget-bar" id="massBudgetBar">
-            <div class="mb-segment mb-dry" id="mbDry"></div>
-            <div class="mb-segment mb-payload" id="mbPayload"></div>
-            <div class="mb-segment mb-food" id="mbFood"></div>
-            <div class="mb-segment mb-o2" id="mbO2"></div>
-            <div class="mb-segment mb-crew" id="mbCrew"></div>
-            <div class="mb-limit-line" id="mbLimit"></div>
-          </div>
-          <div class="mass-budget-readout">
-            <span id="massTotal">0</span> / <span id="massMax">0</span> kg
-            <span id="massOverloaded" class="overloaded-warn" style="display:none;">OVERLOADED</span>
-          </div>
+          <section class="hangar-right">
+            <div class="section-heading">
+              <span>MISSION DESIGN</span>
+              <span class="live-badge">LIVE SYNC</span>
+            </div>
+
+            <div class="config-section">
+              <span class="config-label">LAUNCH VEHICLE</span>
+              <div class="mission-option-grid" id="rocketTabs">
+                <button type="button" class="mission-option" data-rocket="0">
+                  <strong>ELECTRON</strong><span>Max 900 kg</span><small>High Agility</small>
+                </button>
+                <button type="button" class="mission-option active" data-rocket="1">
+                  <strong>FALCON 9</strong><span>Max 1080 kg</span><small>Balanced</small>
+                </button>
+                <button type="button" class="mission-option" data-rocket="2">
+                  <strong>SLS BLOCK 1B</strong><span>Max 1280 kg</span><small>Heavy Lift</small>
+                </button>
+              </div>
+            </div>
+
+            <div class="config-section">
+              <span class="config-label">SCIENCE PAYLOAD</span>
+              <div class="mission-option-grid" id="payloadTabs">
+                <button type="button" class="mission-option" data-payload="0">
+                  <strong>LIGHT SPECTROMETER</strong><span>70 kg</span><small>90 Science</small>
+                </button>
+                <button type="button" class="mission-option active" data-payload="1">
+                  <strong>MARS ROVER LAB</strong><span>190 kg</span><small>200 Science</small>
+                </button>
+                <button type="button" class="mission-option" data-payload="2">
+                  <strong>NUCLEAR DEEP DRILL</strong><span>340 kg</span><small>380 Science</small>
+                </button>
+              </div>
+            </div>
+
+            <div class="supply-grid">
+              <label class="supply-slider" for="foodSlider">
+                <span class="supply-head">FOOD &amp; ROMY CHEESE <b id="foodVal">160 kg</b></span>
+                <input type="range" id="foodSlider" class="au-slider" min="0" max="500" step="5" value="160">
+                <small id="foodDuration">6-crew reserve: 139 sec</small>
+              </label>
+              <label class="supply-slider" for="o2Slider">
+                <span class="supply-head">OXYGEN TANKS <b id="o2Val">150 kg</b></span>
+                <input type="range" id="o2Slider" class="au-slider" min="0" max="500" step="5" value="150">
+                <small id="o2Duration">O2 reserve: 119 sec · Moon EVA ready</small>
+              </label>
+              <label class="supply-slider" for="fuelSlider">
+                <span class="supply-head">PROPELLANT / FUEL RESERVE <b id="fuelVal">250 kg</b></span>
+                <input type="range" id="fuelSlider" class="au-slider" min="50" max="400" step="5" value="250">
+                <small id="fuelDuration">Δv reserve: 250 kg propellant</small>
+              </label>
+            </div>
+
+            <div class="engineering-readout">
+              <div class="readout-metric">
+                <span>Δv (TSIOLKOVSKY)</span>
+                <strong id="deltaVValue">0 m/s</strong>
+              </div>
+              <div class="readout-metric">
+                <span>THRUST / MASS</span>
+                <strong id="twrValue">0.00 TWR</strong>
+              </div>
+              <div class="readout-metric">
+                <span>TRAVEL TO MARS</span>
+                <strong id="travelValue">0 days</strong>
+              </div>
+              <div class="readout-metric">
+                <span>UPDATED BY</span>
+                <strong id="configByValue">Launch crew</strong>
+              </div>
+            </div>
+
+            <div id="missionWarning" class="mission-warning" style="display:none;"></div>
+
+            <div class="mass-budget-bar" id="massBudgetBar">
+              <div class="mb-segment mb-dry" id="mbDry"></div>
+              <div class="mb-segment mb-payload" id="mbPayload"></div>
+              <div class="mb-segment mb-food" id="mbFood"></div>
+              <div class="mb-segment mb-o2" id="mbO2"></div>
+              <div class="mb-segment mb-fuel" id="mbFuel"></div>
+              <div class="mb-segment mb-crew" id="mbCrew"></div>
+              <div class="mb-limit-line" id="mbLimit"></div>
+            </div>
+            <div class="mass-budget-readout">
+              <span id="massTotal">0</span> / <span id="massMax">0</span> kg
+              <span id="massOverloaded" class="overloaded-warn" style="display:none;">OVERWEIGHT</span>
+            </div>
+          </section>
         </div>
 
         <div class="lobby-actions">

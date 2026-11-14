@@ -1,7 +1,7 @@
-# 🚀 Road to Mars (2026 NASA Space Apps Challenge)
+# Road to Mars (2026 NASA Space Apps Challenge)
 
-> **Space Mission Design Game & Multiplayer Survival Simulation**  
-> *A hybrid 2D top-down spaceship management & real-time 3D orbital space flight simulator.*
+> **Space Mission Design Game and Multiplayer Survival Simulation**  
+> *A hybrid 2D top-down spaceship management and real-time 3D orbital space flight simulator.*
 
 [![Node.js](https://img.shields.io/badge/Node.js-22.x-green.svg)](https://nodejs.org/)
 [![Socket.io](https://img.shields.io/badge/Socket.io-4.8.x-black.svg)](https://socket.io/)
@@ -11,23 +11,29 @@
 
 ---
 
-## 📖 Table of Contents
-1. [Project Overview](#-project-overview)
-2. [Core Game Architecture](#-core-game-architecture)
-3. [The Two Perspectives](#-the-two-perspectives)
+## Table of Contents
+1. [Project Overview](#project-overview)
+2. [Core Game Architecture](#core-game-architecture)
+3. [The Two Perspectives](#the-two-perspectives)
    - [Inside the Spacecraft (2D Top-Down Simulation)](#1-inside-the-spacecraft-2d-top-down-simulation)
    - [At the Pilot Console (3D Space Flight Simulator)](#2-at-the-pilot-console-3d-space-flight-simulator)
-4. [The Lunar Detour & Trade-off Mechanics](#-the-lunar-detour--trade-off-mechanics)
-5. [The 10 Ship Compartments](#-the-10-ship-compartments)
-6. [Interactive Controls & Keybindings](#-interactive-controls--keybindings)
-7. [System Requirements & Installation](#-system-requirements--installation)
-8. [Module & File Structure](#-module--file-structure)
-9. [Telemetry, Networking & Protocols](#-telemetry-networking--protocols)
-10. [Credits & References](#-credits--references)
+4. [The Lunar Detour and Trade-off Mechanics](#the-lunar-detour-and-trade-off-mechanics)
+5. [The 10 Ship Compartments](#the-10-ship-compartments)
+6. [Interactive Controls and Keybindings](#interactive-controls-and-keybindings)
+7. [System Requirements and Local Installation](#system-requirements-and-local-installation)
+   - [Prerequisites (What You Must Have)](#prerequisites-what-you-must-have)
+   - [Step-by-Step Installation](#step-by-step-installation)
+8. [How to Boot the Game](#how-to-boot-the-game)
+   - [Server Boot Options](#server-boot-options)
+   - [Launching Clients (Solo Bots vs LAN Multiplayer)](#launching-clients-solo-bots-vs-lan-multiplayer)
+   - [Troubleshooting Common Boot Issues](#troubleshooting-common-boot-issues)
+9. [Module and File Structure](#module-and-file-structure)
+10. [Telemetry, Networking and Protocols](#telemetry-networking-and-protocols)
+11. [Credits and References](#credits-and-references)
 
 ---
 
-## 🌟 Project Overview
+## Project Overview
 
 **"Road to Mars"** is an authoritative browser-based multiplayer survival and space mission design game built for the **2026 NASA Space Apps Challenge**. 
 
@@ -37,7 +43,7 @@ When engineering failures, asteroid impacts, or critical supply shortages strike
 
 ---
 
-## 🏗️ Core Game Architecture
+## Core Game Architecture
 
 ```mermaid
 graph TD
@@ -67,7 +73,7 @@ The game is structured as an authoritative server architecture with zero client-
 
 ---
 
-## 🕹️ The Two Perspectives
+## The Two Perspectives
 
 ### 1. Inside the Spacecraft (2D Top-Down Simulation)
 Inside the ship, players control authentic crewmate beans walking through a massive **3200x2000** interconnected spaceship hull inspired by *The Skeld*:
@@ -91,7 +97,7 @@ Any crewmate who walks into the Navigation Room can press **`PILOT 3D`** (or hot
 
 ---
 
-## 🌕 The Lunar Detour & Trade-off Mechanics
+## The Lunar Detour and Trade-off Mechanics
 
 ```
                  Direct Hohmann Path (Low Fuel, High Starvation Risk)
@@ -101,19 +107,19 @@ Any crewmate who walks into the Navigation Room can press **`PILOT 3D`** (or hot
               - Extra Mission Time (+30 Days)
               - Extra Fuel Burn (Δv: -850 m/s)
               - Heavy Oxygen Consumption (O2: -25%)
-              + Harvest Lunar Romy Cheese (جبنة رومي) (Food: +100%)
+              + Harvest Lunar Romy Cheese (Food: +100%)
               + Collect Lunar Scientific Samples (+500 Science Points)
               - Adds Significant Cargo Mass (kg)
 ```
 
 The pilot faces a critical strategic decision: **Stay on the direct Hohmann transfer** to Mars, or **steer toward the Moon for a lunar landing detour**:
 1. **The Risk**: Departing for the Moon expends massive $\Delta v$, burns additional Oxygen, and extends mission flight time.
-2. **The Reward**: Landing on the Moon allows crewmates to disembark onto the 2D Lunar surface to harvest high-calorie **Lunar Romy Cheese (جبنة رومي)** and collect valuable Moon Rocks.
+2. **The Reward**: Landing on the Moon allows crewmates to disembark onto the 2D Lunar surface to harvest high-calorie **Lunar Romy Cheese** and collect valuable Moon Rocks.
 3. **The Penalty**: Collecting cheese and rocks adds raw **Mass ($kg$)** to the ship. A heavier ship requires significantly more $\Delta v$ for the final Mars orbital capture burn, forcing the crew to reconsider what cargo—or who—stays onboard!
 
 ---
 
-## 🚪 The 10 Ship Compartments
+## The 10 Ship Compartments
 
 The ship layout spans **`3200 x 2000`** coordinate units with fully modeled bulkheads, metallic gratings, and room-specific machinery:
 
@@ -132,7 +138,7 @@ The ship layout spans **`3200 x 2000`** coordinate units with fully modeled bulk
 
 ---
 
-## 🎮 Interactive Controls & Keybindings
+## Interactive Controls and Keybindings
 
 ### 2D Ship Interior Controls
 - **`W`, `A`, `S`, `D` / Arrow Keys**: Move crewmate.
@@ -152,43 +158,201 @@ The ship layout spans **`3200 x 2000`** coordinate units with fully modeled bulk
 
 ---
 
-## ⚙️ System Requirements & Installation
+## System Requirements and Local Installation
 
-### Prerequisites
-- **Node.js**: `v18.0.0` or higher (tested on Node.js `v22.x`)
-- **NPM**: `v9.0.0` or higher
-- **Modern Web Browser**: Chrome, Brave, Firefox, Edge, or Safari with WebGL 2.0 support.
+### Prerequisites (What You Must Have)
 
-### Quick Start Guide
+Before setting up the game locally, ensure your host environment meets the following hardware and software requirements:
 
-1. **Navigate to the Project Directory**:
+1. **Hardware Specifications**:
+   - **Processor**: 64-bit dual-core CPU (Intel Core i3 / AMD Ryzen 3 / Apple Silicon M-series or equivalent).
+   - **Memory**: Minimum 2 GB RAM (4 GB or more recommended for smooth 3D rendering and multiple local clients).
+   - **Graphics**: Integrated or dedicated GPU supporting **WebGL 2.0** and hardware-accelerated canvas rendering.
+
+2. **Operating System**:
+   - **Linux**: Ubuntu 20.04+, Debian 11+, Fedora 38+, Arch Linux, or any modern distribution.
+   - **macOS**: macOS 11.0 (Big Sur) or newer.
+   - **Windows**: Windows 10 or Windows 11 (native PowerShell, Command Prompt, or WSL2).
+
+3. **Software & Runtime Dependencies**:
+   - **Node.js**: Version `18.0.0` or higher (`Node.js v20.x` LTS or `v22.x` is strongly recommended).  
+     Verify your installation by running:
+     ```bash
+     node --version
+     ```
+     If Node.js is not installed, install it via [nodejs.org](https://nodejs.org/) or using Node Version Manager (`nvm`):
+     ```bash
+     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+     nvm install 22
+     nvm use 22
+     ```
+   - **NPM**: Version `9.0.0` or higher (comes bundled with Node.js).  
+     Verify with:
+     ```bash
+     npm --version
+     ```
+   - **Git**: Required to clone and manage project source code.  
+     Verify with:
+     ```bash
+     git --version
+     ```
+   - **Web Browser**: A modern browser with WebGL 2.0 and WebSocket support enabled:
+     - Google Chrome (version 100+)
+     - Brave Browser
+     - Mozilla Firefox (version 100+)
+     - Microsoft Edge
+     - Apple Safari (version 15+)
+
+4. **Network & Port Availability**:
+   - By default, the server binds to port `3000`. Ensure port `3000` is open and not blocked by local firewalls (e.g. `ufw`, `iptables`, or Windows Defender Firewall).
+
+---
+
+### Step-by-Step Installation
+
+1. **Clone the Repository**:
+   Clone the repository from your source host:
    ```bash
-   cd "Road to Mars"
+   git clone <repository_url>
+   cd "Game play/Road to Mars"
    ```
 
-2. **Install Dependencies**:
+2. **Inspect Directory Contents**:
+   Confirm that `server.js`, `package.json`, and the `public/` folder are present:
+   ```bash
+   ls -la
+   ```
+
+3. **Install Node.js Dependencies**:
+   Install the required server packages (`express`, `socket.io`, `cors`):
    ```bash
    npm install
    ```
 
-3. **Launch the Game Server**:
+4. **Verify Asset Linkage**:
+   The game engine serves 3D GLTF models (`craft_cargoA.glb`, `rock_largeA.glb`, `satelliteDish_detailed.glb`), planet textures, and isometric room sprites from the shared `assets` directory. Ensure the `../assets` folder exists or is mounted by the server:
    ```bash
-   npm start
+   ls -la ../assets/kenney_space-kit/Models/GLTF\ format/
    ```
-   *(For active development with auto-reloading, run `npm run dev`)*
-
-4. **Play the Game**:
-   Open your browser and navigate to:
-   ```
-   http://localhost:3000
-   ```
-   - Enter your **Crewmate Name** and select your **Suit Color**.
-   - Create a new room or join an existing room.
-   - If playing solo, click **Start Game** and autonomous AI Bots will automatically populate the crew!
 
 ---
 
-## 📂 Module & File Structure
+## How to Boot the Game
+
+### Server Boot Options
+
+You can boot the game server using any of the following modes depending on your workflow:
+
+#### Option A: Standard Production Boot (Recommended)
+Runs the authoritative WebSocket game server on default port `3000`:
+```bash
+npm start
+```
+Or run directly with Node:
+```bash
+node server.js
+```
+The terminal will display:
+```
+Road to Mars server listening on port 3000
+```
+
+#### Option B: Development Mode (Auto-Reload on Code Edit)
+Runs Node with native file watching. Any modification to `server.js` or client assets will automatically reboot the server without manual restarts:
+```bash
+npm run dev
+```
+
+#### Option C: Booting on a Custom Port
+If port `3000` is already in use by another application, specify an alternate port via the `PORT` environment variable:
+```bash
+PORT=8080 npm start
+```
+Then navigate to `http://localhost:8080` in your browser.
+
+#### Option D: Running in the Background (Daemon Mode on Linux / macOS)
+To keep the server running continuously in the background after closing the terminal:
+```bash
+nohup node server.js > server.log 2>&1 &
+```
+To check if the daemon is running:
+```bash
+ps aux | grep "node server.js"
+```
+To stop the background server:
+```bash
+fuser -k 3000/tcp
+```
+
+---
+
+### Launching Clients (Solo Bots vs LAN Multiplayer)
+
+Once the server is booted, clients can join locally or over a local area network (LAN):
+
+#### 1. Single-Player Boot (with Autonomous AI Bots)
+1. Open your browser and navigate to:
+   ```
+   http://localhost:3000
+   ```
+2. Enter your **Crewmate Name** and select your preferred **Suit Color**.
+3. Click **Create Room** (or join an existing room code).
+4. Click **Start Game**.
+5. The authoritative server automatically initializes and boots autonomous **AI Bots** to fill all remaining slots up to the 6-player roster. The bots will navigate the ship, execute life-support tasks, vote during emergency meetings, and roam alongside you.
+
+#### 2. Local LAN Multiplayer Boot (Play with Friends on the Same Network)
+1. Determine the host machine's local IP address:
+   - **Linux / macOS**:
+     ```bash
+     ip addr show | grep "inet " || ifconfig | grep "inet "
+     ```
+   - **Windows (PowerShell)**:
+     ```powershell
+     ipconfig
+     ```
+     *(Look for your IPv4 Address, for example: `192.168.1.150`)*
+2. On any other computer, laptop, tablet, or smartphone connected to the same Wi-Fi/LAN router, open the browser and navigate to:
+   ```
+   http://<HOST_IP_ADDRESS>:3000
+   ```
+   *(Example: `http://192.168.1.150:3000`)*
+3. Players enter their names, select distinct colors, and enter the Host's Room Code to join the mission.
+
+#### 3. Multi-Client Testing on a Single Machine
+To test multiplayer interactions, synchronization, and the 3D pilot seat lock on one computer:
+- Open `http://localhost:3000` in your primary browser window.
+- Open a second instance in an **Incognito / Private Window** or a secondary browser (e.g. Brave and Chrome side-by-side).
+- Connect both windows to the same room. You will see real-time player position interpolation, chat, task progress, and pilot transitions synchronized across both windows.
+
+---
+
+### Troubleshooting Common Boot Issues
+
+- **Port Conflict (`Error: listen EADDRINUSE: address already in use :::3000`)**:  
+  Another service is occupying port 3000. Terminate the blocking process:
+  - On Linux / macOS:
+    ```bash
+    fuser -k 3000/tcp
+    # Or find and kill manually:
+    lsof -i :3000
+    kill -9 <PID>
+    ```
+  - On Windows (PowerShell as Administrator):
+    ```powershell
+    Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess -Force
+    ```
+
+- **Missing Node Modules (`Error: Cannot find module 'express'`)**:  
+  Run `npm install` inside the `Road to Mars` folder to ensure all dependencies are downloaded.
+
+- **WebGL 2.0 Disabled or Black 3D Cockpit Screen**:  
+  Make sure your browser has hardware acceleration enabled:
+  - Chrome / Brave / Edge: Navigate to `chrome://settings/system` and ensure **"Use graphics acceleration when available"** is checked.
+  - Verify WebGL support by visiting `https://get.webgl.org/webgl2/`.
+
+---
+
+## Module and File Structure
 
 ```
 Road to Mars/
@@ -212,12 +376,12 @@ Road to Mars/
 │   │   ├── lobby.js          # Room creation, player color picker & lobby screen
 │   │   ├── audio.js          # Web Audio API procedural sound synthesizer
 │   │   └── debrief.js        # Mission outcome summary & NASA scoring report
-│   └── assets/               # Local sprites, 3D models, planet textures & sound effects
+└── assets/                   # Symlinked Kenney 3D models, textures, and sprites
 ```
 
 ---
 
-## 📡 Telemetry, Networking & Protocols
+## Telemetry, Networking and Protocols
 
 ### Key Socket.io Events
 - `player:register` / `player:registered`: Authenticates client and assigns initial spawn coordinate.
@@ -231,7 +395,7 @@ Road to Mars/
 
 ---
 
-## 🏆 Credits & References
+## Credits and References
 
 - **NASA Space Apps Challenge 2026**: Space Mission Design Game category.
 - **Three.js**: 3D WebGL rendering engine.
@@ -240,4 +404,4 @@ Road to Mars/
 - **Innersloth**: Inspiration from *Among Us* for social deduction and spacecraft survival mechanics.
 
 ---
-*Built with ❤️ for the 2026 NASA Space Apps Challenge.*
+*Built for the 2026 NASA Space Apps Challenge.*

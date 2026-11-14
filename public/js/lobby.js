@@ -2,11 +2,28 @@ window.RTM = window.RTM || {};
 window.RTM.Lobby = (function () {
   'use strict';
 
-  var ROCKETS = ['electron', 'falcon9', 'sls'];
-  var PAYLOADS = ['light', 'medium', 'heavy'];
+  var ROCKETS = [
+    { id: 'electron', name: 'ELECTRON', maxMass: 900, thrustKN: 224, exhaust: 3200, twrBase: 1.62, tag: 'High Agility' },
+    { id: 'falcon9', name: 'FALCON 9', maxMass: 1080, thrustKN: 7607, exhaust: 3400, twrBase: 1.46, tag: 'Balanced' },
+    { id: 'sls', name: 'SLS BLOCK 1B', maxMass: 1280, thrustKN: 39100, exhaust: 3600, twrBase: 1.32, tag: 'Heavy Lift' }
+  ];
+  var PAYLOADS = [
+    { id: 'light', name: 'LIGHT SPECTROMETER', mass: 70, science: 90 },
+    { id: 'medium', name: 'MARS ROVER LAB', mass: 190, science: 200 },
+    { id: 'heavy', name: 'NUCLEAR DEEP DRILL', mass: 340, science: 380 }
+  ];
+  var SPECIALTIES = {
+    pilot: { label: 'PILOT & NAVIGATOR', short: 'PILOT', hat: '✈' },
+    o2: { label: 'O2 & LIFE SUPPORT', short: 'O2', hat: '◌' },
+    chef: { label: 'ROMY CHEESE QUARTERMASTER', short: 'CHEF', hat: '♨' },
+    propulsion: { label: 'FLIGHT MASS & PROPULSION', short: 'PROPULSION', hat: '▲' },
+    scientist: { label: 'CHIEF SCIENTIST', short: 'SCIENTIST', hat: '✦' },
+    electrical: { label: 'ELECTRICAL ENGINEER', short: 'ELECTRICAL', hat: 'ϟ' }
+  };
   var ROCKET_MASS = { electron: 900, falcon9: 1080, sls: 1280 };
   var PAYLOAD_MASS = { light: 70, medium: 190, heavy: 340 };
   var COLORS = ['#c51111', '#132ed1', '#117f2d', '#ed54ba', '#ef7d0e', '#f5f557'];
+  var DRY_MASS = 270;
 
   var els = {};
   var registerSent = false;
@@ -14,124 +31,255 @@ window.RTM.Lobby = (function () {
   var createSent = false;
   var configTimer = null;
   var joinTimer = null;
+  var selectedRocket = 'falcon9';
+  var selectedPayload = 'medium';
+  var localSpecialty = 'pilot';
+  var specialtySent = false;
+  var localConfigPending = false;
+  var configPendingTimer = null;
 
   function cache() {
     els.lobby = document.getElementById('lobbyScreen');
     els.roomCode = document.getElementById('roomCode');
+    els.crewCount = document.getElementById('crewCount');
     els.playerGrid = document.getElementById('playerGrid');
+    els.specialtyPicker = document.getElementById('specialtyPicker');
     els.rocketTabs = document.getElementById('rocketTabs');
     els.payloadTabs = document.getElementById('payloadTabs');
     els.foodSlider = document.getElementById('foodSlider');
     els.o2Slider = document.getElementById('o2Slider');
+    els.fuelSlider = document.getElementById('fuelSlider');
     els.foodVal = document.getElementById('foodVal');
     els.o2Val = document.getElementById('o2Val');
+    els.fuelVal = document.getElementById('fuelVal');
+    els.foodDuration = document.getElementById('foodDuration');
+    els.o2Duration = document.getElementById('o2Duration');
+    els.fuelDuration = document.getElementById('fuelDuration');
     els.massBudgetBar = document.getElementById('massBudgetBar');
     els.mbDry = document.getElementById('mbDry');
     els.mbPayload = document.getElementById('mbPayload');
     els.mbFood = document.getElementById('mbFood');
     els.mbO2 = document.getElementById('mbO2');
+    els.mbFuel = document.getElementById('mbFuel');
     els.mbCrew = document.getElementById('mbCrew');
     els.mbLimit = document.getElementById('mbLimit');
     els.massTotal = document.getElementById('massTotal');
     els.massMax = document.getElementById('massMax');
     els.massOverloaded = document.getElementById('massOverloaded');
+    els.deltaVValue = document.getElementById('deltaVValue');
+    els.twrValue = document.getElementById('twrValue');
+    els.travelValue = document.getElementById('travelValue');
+    els.configByValue = document.getElementById('configByValue');
+    els.missionWarning = document.getElementById('missionWarning');
     els.addBotBtn = document.getElementById('addBotBtn');
     els.removeBotBtn = document.getElementById('removeBotBtn');
     els.startBtn = document.getElementById('startBtn');
   }
 
-  function setActiveTab(container, index) {
+  function rocketInfo(id) {
+    for (var i = 0; i < ROCKETS.length; i++) if (ROCKETS[i].id === id) return ROCKETS[i];
+    return ROCKETS[1];
+  }
+
+  function payloadInfo(id) {
+    for (var i = 0; i < PAYLOADS.length; i++) if (PAYLOADS[i].id === id) return PAYLOADS[i];
+    return PAYLOADS[1];
+  }
+
+  function setActiveOption(container, id, attribute) {
     if (!container) return;
-    var buttons = container.querySelectorAll('button');
+    var buttons = container.querySelectorAll('.mission-option');
     for (var i = 0; i < buttons.length; i++) {
-      buttons[i].classList.toggle('active', i === index);
+      var value = buttons[i].getAttribute(attribute);
+      var match = attribute === 'data-rocket'
+        ? ROCKETS[Number(value)] && ROCKETS[Number(value)].id === id
+        : PAYLOADS[Number(value)] && PAYLOADS[Number(value)].id === id;
+      buttons[i].classList.toggle('active', !!match);
     }
   }
 
-  function activeTabIndex(container, fallback) {
-    if (!container) return fallback;
-    var buttons = container.querySelectorAll('button');
-    for (var i = 0; i < buttons.length; i++) {
-      if (buttons[i].classList.contains('active')) return i;
-    }
-    return fallback;
+  function sliderValue(slider, fallback) {
+    return slider ? Number(slider.value) : fallback;
   }
 
-  function currentRocket() {
-    return ROCKETS[activeTabIndex(els.rocketTabs, 1)] || 'falcon9';
+  function currentFood() {
+    return sliderValue(els.foodSlider, 160);
   }
 
-  function currentPayload() {
-    return PAYLOADS[activeTabIndex(els.payloadTabs, 1)] || 'medium';
+  function currentO2() {
+    return sliderValue(els.o2Slider, 150);
+  }
+
+  function currentFuel() {
+    return sliderValue(els.fuelSlider, 250);
   }
 
   function configure() {
-    if (!registered) return;
+    if (!registered) {
+      localConfigPending = false;
+      return;
+    }
     var gameState = RTM.Net.getState();
-    if (!gameState.room || gameState.phase !== 'lobby') return;
+    if (!gameState.room || gameState.phase !== 'lobby') {
+      localConfigPending = false;
+      return;
+    }
+    clearTimeout(configPendingTimer);
+    configPendingTimer = setTimeout(function () {
+      localConfigPending = false;
+    }, 1600);
     RTM.Net.emit('mission:configure', {
-      rocket: currentRocket(),
-      sciencePayload: currentPayload(),
-      foodMass: Number(els.foodSlider ? els.foodSlider.value : 0),
-      o2Mass: Number(els.o2Slider ? els.o2Slider.value : 0)
+      rocket: selectedRocket,
+      sciencePayload: selectedPayload,
+      foodMass: currentFood(),
+      o2Mass: currentO2(),
+      fuelMass: currentFuel()
     });
   }
 
   function scheduleConfigure() {
-    renderMass();
+    localConfigPending = true;
+    renderEngineering();
     clearTimeout(configTimer);
     configTimer = setTimeout(configure, 120);
   }
 
-  function syncControls(room, telemetry) {
-    var settings = room && room.settings ? room.settings : {};
-    var rocket = settings.rocket || (telemetry && telemetry.launcher) || 'falcon9';
-    var payload = settings.sciencePayload || 'medium';
-    var rocketIndex = ROCKETS.indexOf(rocket);
-    var payloadIndex = PAYLOADS.indexOf(payload);
-    setActiveTab(els.rocketTabs, rocketIndex < 0 ? 1 : rocketIndex);
-    setActiveTab(els.payloadTabs, payloadIndex < 0 ? 1 : payloadIndex);
+  function commitRemoteConfig() {
+    localConfigPending = false;
+    clearTimeout(configPendingTimer);
+  }
+
+  function updateSupplyLabels() {
+    var food = currentFood();
+    var o2 = currentO2();
+    var fuel = currentFuel();
+    if (els.foodVal) els.foodVal.textContent = food + ' kg';
+    if (els.o2Val) els.o2Val.textContent = o2 + ' kg';
+    if (els.fuelVal) els.fuelVal.textContent = fuel + ' kg';
+    var foodSeconds = Math.round((food / 160) * 139);
+    var o2Seconds = Math.round((o2 / 150) * 119);
+    if (els.foodDuration) {
+      els.foodDuration.textContent = '6-crew reserve: ' + foodSeconds + ' sec · ' + (foodSeconds / 60).toFixed(1) + ' game-days';
+    }
+    if (els.o2Duration) {
+      els.o2Duration.textContent = 'O2 reserve: ' + o2Seconds + ' sec · ' + (o2 >= 50 ? 'Moon EVA ready' : 'Moon EVA limited');
+    }
+    if (els.fuelDuration) {
+      els.fuelDuration.textContent = 'Δv reserve: ' + fuel + ' kg propellant';
+    }
+  }
+
+  function syncControlsFromRoom(room, telemetry) {
+    if (localConfigPending) {
+      updateSupplyLabels();
+      return;
+    }
+    var settings = (room && room.settings) || {};
+    var rocket = settings.rocket || (telemetry && telemetry.launcher) || selectedRocket;
+    var payload = settings.sciencePayload || selectedPayload;
+    selectedRocket = rocketInfo(rocket).id;
+    selectedPayload = payloadInfo(payload).id;
+    setActiveOption(els.rocketTabs, selectedRocket, 'data-rocket');
+    setActiveOption(els.payloadTabs, selectedPayload, 'data-payload');
     if (els.foodSlider && settings.foodMass != null && document.activeElement !== els.foodSlider) {
       els.foodSlider.value = settings.foodMass;
     }
     if (els.o2Slider && settings.o2Mass != null && document.activeElement !== els.o2Slider) {
       els.o2Slider.value = settings.o2Mass;
     }
-    if (els.foodVal && els.foodSlider) els.foodVal.textContent = els.foodSlider.value + ' kg';
-    if (els.o2Val && els.o2Slider) els.o2Val.textContent = els.o2Slider.value + ' kg';
+    if (els.fuelSlider && settings.fuelMass != null && document.activeElement !== els.fuelSlider) {
+      els.fuelSlider.value = settings.fuelMass;
+    }
+    updateSupplyLabels();
   }
 
-  function renderMass() {
+  function massBreakdown() {
     var gameState = RTM.Net ? RTM.Net.getState() : null;
-    var room = gameState && gameState.room;
-    var telemetry = (gameState && gameState.telemetry) || {};
-    var settings = (room && room.settings) || (gameState && gameState.settings) || {};
-    var rocket = currentRocket();
-    var payload = currentPayload();
-    var foodMass = Number(els.foodSlider ? els.foodSlider.value : settings.foodMass || 0);
-    var o2Mass = Number(els.o2Slider ? els.o2Slider.value : settings.o2Mass || 0);
-    var maxMass = ROCKET_MASS[rocket] || telemetry.maxMass || 1080;
-    var payloadMass = PAYLOAD_MASS[payload] != null ? PAYLOAD_MASS[payload] : telemetry.payloadMass || 0;
-    var players = 0;
-    if (gameState && gameState.players) players = Object.keys(gameState.players).length;
-    var crewMass = telemetry.crewMass != null && telemetry.crewMass > 0 ? telemetry.crewMass : players * 80;
-    var dryMass = telemetry.dryMass || 270;
-    var total = dryMass + payloadMass + foodMass + o2Mass + crewMass;
+    var players = (gameState && gameState.players) || {};
+    var crewMass = Object.keys(players).length * 80;
+    var payload = payloadInfo(selectedPayload);
+    var rocket = rocketInfo(selectedRocket);
+    var food = currentFood();
+    var o2 = currentO2();
+    var fuel = currentFuel();
+    var total = DRY_MASS + payload.mass + food + o2 + fuel + crewMass;
+    return {
+      rocket: rocket,
+      payload: payload,
+      dry: DRY_MASS,
+      payloadMass: payload.mass,
+      food: food,
+      o2: o2,
+      fuel: fuel,
+      crew: crewMass,
+      total: total,
+      max: rocket.maxMass
+    };
+  }
+
+  function renderEngineering() {
+    updateSupplyLabels();
+    var mass = massBreakdown();
+    var overBy = Math.max(0, mass.total - mass.max);
+    var penaltyPct = Math.round((mass.total / mass.max - 1) * 100);
+    var effectiveMax = Math.max(mass.max, mass.total);
     var segments = [
-      [els.mbDry, dryMass],
-      [els.mbPayload, payloadMass],
-      [els.mbFood, foodMass],
-      [els.mbO2, o2Mass],
-      [els.mbCrew, crewMass]
+      [els.mbDry, mass.dry],
+      [els.mbPayload, mass.payloadMass],
+      [els.mbFood, mass.food],
+      [els.mbO2, mass.o2],
+      [els.mbFuel, mass.fuel],
+      [els.mbCrew, mass.crew]
     ];
     for (var i = 0; i < segments.length; i++) {
-      if (segments[i][0]) segments[i][0].style.width = Math.max(0, (segments[i][1] / maxMass) * 100) + '%';
+      if (segments[i][0]) {
+        segments[i][0].style.width = Math.max(0, (segments[i][1] / effectiveMax) * 100) + '%';
+      }
     }
-    if (els.mbLimit) els.mbLimit.style.left = 'calc(100% - 3px)';
-    if (els.massTotal) els.massTotal.textContent = Math.round(total);
-    if (els.massMax) els.massMax.textContent = Math.round(maxMass);
-    if (els.massOverloaded) els.massOverloaded.style.display = total > maxMass ? 'inline' : 'none';
-    if (els.massBudgetBar) els.massBudgetBar.classList.toggle('overloaded', total > maxMass);
+    if (els.mbLimit) els.mbLimit.style.left = Math.max(0, Math.min(100, (mass.max / effectiveMax) * 100)) + '%';
+    if (els.massTotal) els.massTotal.textContent = Math.round(mass.total);
+    if (els.massMax) els.massMax.textContent = Math.round(mass.max);
+    if (els.massOverloaded) els.massOverloaded.style.display = overBy > 0 ? 'inline' : 'none';
+    if (els.massBudgetBar) els.massBudgetBar.classList.toggle('overloaded', overBy > 0);
+
+    var finalMass = Math.max(1, mass.total - mass.fuel);
+    var deltaV = mass.rocket.exhaust * Math.log(mass.total / finalMass);
+    var twr = mass.rocket.twrBase * (mass.max / mass.total);
+    var travelDays = Math.round(210 * Math.sqrt(mass.total / mass.max) * Math.pow(250 / Math.max(50, mass.fuel), 0.35));
+    travelDays = Math.max(150, Math.min(720, travelDays));
+    if (els.deltaVValue) els.deltaVValue.textContent = Math.round(deltaV).toLocaleString() + ' m/s';
+    if (els.twrValue) els.twrValue.textContent = twr.toFixed(2) + ' TWR';
+    if (els.travelValue) els.travelValue.textContent = travelDays + ' days';
+
+    var gameState = RTM.Net ? RTM.Net.getState() : {};
+    var byName = (gameState && gameState.missionUpdatedByName) ||
+      (gameState && gameState.room && gameState.room.players && gameState.room.players[gameState.room.hostId] && gameState.room.players[gameState.room.hostId].name) ||
+      'Launch crew';
+    if (els.configByValue) els.configByValue.textContent = byName;
+
+    if (els.missionWarning) {
+      if (overBy > 0) {
+        els.missionWarning.style.display = 'block';
+        els.missionWarning.textContent = 'WARNING: Overweight by ' + Math.round(overBy) +
+          ' kg! Fuel burn will increase by ' + Math.max(1, penaltyPct) +
+          '% — you will have to jettison cargo or sacrifice a crewmate!';
+      } else {
+        els.missionWarning.style.display = 'none';
+        els.missionWarning.textContent = '';
+      }
+    }
+
+    if (RTM.Net && RTM.Net.getState().room) {
+      var state = RTM.Net.getState();
+      var telemetry = state.telemetry || {};
+      telemetry.totalMass = mass.total;
+      telemetry.maxMass = mass.max;
+      telemetry.massPenalty = overBy > 0 ? mass.total / mass.max : 1;
+    }
+  }
+
+  function specialtyMeta(id) {
+    return SPECIALTIES[id] || { label: 'UNASSIGNED', short: 'CREW', hat: '·' };
   }
 
   function fillSlot(player, isLocal) {
@@ -144,27 +292,28 @@ window.RTM.Lobby = (function () {
       slot.appendChild(empty);
       return slot;
     }
+    var meta = specialtyMeta(player.specialty);
     var swatch = document.createElement('span');
     swatch.className = 'slot-color';
     swatch.style.background = player.color || '#888';
+    swatch.textContent = meta.hat;
     var name = document.createElement('span');
     name.className = 'slot-name';
     name.textContent = player.name || 'Crew';
+    var specialty = document.createElement('span');
+    specialty.className = 'slot-specialty';
+    specialty.textContent = meta.short;
     var tags = [];
     if (isLocal) tags.push('YOU');
     if (player.isHost) tags.push('HOST');
     if (player.isBot) tags.push('BOT');
-    if (tags.length) {
-      var tag = document.createElement('span');
-      tag.className = 'slot-label';
-      tag.textContent = tags.join(' · ');
-      slot.appendChild(swatch);
-      slot.appendChild(name);
-      slot.appendChild(tag);
-    } else {
-      slot.appendChild(swatch);
-      slot.appendChild(name);
-    }
+    var tag = document.createElement('span');
+    tag.className = 'slot-label';
+    tag.textContent = tags.join(' · ');
+    slot.appendChild(swatch);
+    slot.appendChild(name);
+    slot.appendChild(tag);
+    slot.appendChild(specialty);
     return slot;
   }
 
@@ -185,6 +334,23 @@ window.RTM.Lobby = (function () {
       var player = list[i] || null;
       els.playerGrid.appendChild(fillSlot(player, !!player && player.id === RTM.Net.playerId));
     }
+    if (els.crewCount) els.crewCount.textContent = list.length + ' / 6';
+    var local = players[RTM.Net.playerId];
+    if (local && local.specialty && SPECIALTIES[local.specialty]) {
+      localSpecialty = local.specialty;
+    }
+    if (local && local.specialty === 'crew' && !specialtySent) {
+      specialtySent = true;
+      RTM.Net.emit('player:specialty', { specialty: localSpecialty || 'pilot' });
+    }
+  }
+
+  function renderSpecialtyPicker() {
+    if (!els.specialtyPicker) return;
+    var buttons = els.specialtyPicker.querySelectorAll('.specialty-btn');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].classList.toggle('active', buttons[i].getAttribute('data-specialty') === localSpecialty);
+    }
   }
 
   function render() {
@@ -192,9 +358,10 @@ window.RTM.Lobby = (function () {
     if (!gameState) return;
     var room = gameState.room;
     if (els.roomCode) els.roomCode.textContent = room ? (room.code || room.id || '????') : '????';
+    syncControlsFromRoom(room, gameState.telemetry);
     renderPlayers();
-    syncControls(room, gameState.telemetry);
-    renderMass();
+    renderSpecialtyPicker();
+    renderEngineering();
     var host = RTM.Net.isHost();
     if (els.addBotBtn) els.addBotBtn.disabled = !host;
     if (els.removeBotBtn) els.removeBotBtn.disabled = !host;
@@ -269,13 +436,24 @@ window.RTM.Lobby = (function () {
     RTM.Net.emit('game:start', { fillBots: true });
   }
 
+  function chooseSpecialty(specialty) {
+    if (!SPECIALTIES[specialty]) return;
+    localSpecialty = specialty;
+    specialtySent = true;
+    renderSpecialtyPicker();
+    RTM.Net.emit('player:specialty', { specialty: specialty });
+  }
+
   function init() {
     cache();
     if (els.rocketTabs) {
       els.rocketTabs.addEventListener('click', function (event) {
         var button = event.target.closest('button[data-rocket]');
         if (!button) return;
-        setActiveTab(els.rocketTabs, Number(button.getAttribute('data-rocket')));
+        var info = ROCKETS[Number(button.getAttribute('data-rocket'))];
+        if (!info) return;
+        selectedRocket = info.id;
+        setActiveOption(els.rocketTabs, selectedRocket, 'data-rocket');
         scheduleConfigure();
       });
     }
@@ -283,22 +461,26 @@ window.RTM.Lobby = (function () {
       els.payloadTabs.addEventListener('click', function (event) {
         var button = event.target.closest('button[data-payload]');
         if (!button) return;
-        setActiveTab(els.payloadTabs, Number(button.getAttribute('data-payload')));
+        var info = PAYLOADS[Number(button.getAttribute('data-payload'))];
+        if (!info) return;
+        selectedPayload = info.id;
+        setActiveOption(els.payloadTabs, selectedPayload, 'data-payload');
         scheduleConfigure();
       });
     }
-    if (els.foodSlider) {
-      els.foodSlider.addEventListener('input', function () {
-        if (els.foodVal) els.foodVal.textContent = els.foodSlider.value + ' kg';
-        scheduleConfigure();
+    if (els.specialtyPicker) {
+      els.specialtyPicker.addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-specialty]');
+        if (!button) return;
+        chooseSpecialty(button.getAttribute('data-specialty'));
       });
     }
-    if (els.o2Slider) {
-      els.o2Slider.addEventListener('input', function () {
-        if (els.o2Val) els.o2Val.textContent = els.o2Slider.value + ' kg';
+    [els.foodSlider, els.o2Slider, els.fuelSlider].forEach(function (slider) {
+      if (!slider) return;
+      slider.addEventListener('input', function () {
         scheduleConfigure();
       });
-    }
+    });
     if (els.addBotBtn) els.addBotBtn.addEventListener('click', addBot);
     if (els.removeBotBtn) els.removeBotBtn.addEventListener('click', removeBot);
     if (els.startBtn) els.startBtn.addEventListener('click', startGame);
@@ -319,8 +501,14 @@ window.RTM.Lobby = (function () {
     RTM.Net.on('state:snapshot', render);
     RTM.Net.on('player:joined', render);
     RTM.Net.on('player:left', render);
-    RTM.Net.on('telemetry:updated', renderMass);
-    RTM.Net.on('mission:configured', render);
+    RTM.Net.on('player:specialty', render);
+    RTM.Net.on('telemetry:updated', function () {
+      renderEngineering();
+    });
+    RTM.Net.on('mission:configured', function () {
+      commitRemoteConfig();
+      render();
+    });
     RTM.Net.on('game:started', render);
 
     if (RTM.Net.offlineMode || (RTM.Net.socket && RTM.Net.socket.connected)) {

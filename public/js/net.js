@@ -12,7 +12,7 @@ window.RTM.Net = (function () {
     'pilot:seat:locked', 'pilot:seat:unlocked', 'pilot:seat:updated',
     'pilot:thrust', 'moon:state', 'moon:nodes', 'moon:node-collected',
     'meeting:started', 'meeting:voted', 'meeting:ended', 'cargo:jettisoned',
-    'room:message', 'state:snapshot'
+    'room:message', 'state:snapshot', 'player:specialty'
   ];
 
   var EVENT_ALIASES = {
@@ -61,13 +61,15 @@ window.RTM.Net = (function () {
       ghostCount: 0, massPenalty: 1, starving: false, overloaded: false
     },
     tasks: { progress: 0, completions: 0, byTask: {} },
-    settings: { rocket: 'falcon9', sciencePayload: 'medium', foodMass: 160, o2Mass: 150 },
+    settings: { rocket: 'falcon9', sciencePayload: 'medium', foodMass: 160, o2Mass: 150, fuelMass: 250 },
     pilotSeat: { seatId: 'pilot', occupantId: null, playerId: null, locked: false },
     pilotThrust: { playerId: null, throttle: 0, heading: 0 },
     moon: { state: 'orbit', active: false, nodes: [] },
     meeting: null,
     lastMeetingResults: null,
-    localRole: null
+    localRole: null,
+    missionUpdatedBy: null,
+    missionUpdatedByName: null
   };
 
   function uuid() {
@@ -108,6 +110,14 @@ window.RTM.Net = (function () {
     } catch (_) {}
   }
 
+  function seatOccupant(source) {
+    if (!source) return null;
+    if (source.occupantId) return source.occupantId;
+    if (source.playerId) return source.playerId;
+    if (source.seat) return source.seat.occupantId || source.seat.playerId || null;
+    return null;
+  }
+
   function normalizePlayer(player) {
     if (!player) return player;
     var alive = player.isAlive != null ? player.isAlive !== false : player.alive !== false;
@@ -117,13 +127,14 @@ window.RTM.Net = (function () {
     if (player.direction == null) player.direction = player.d || 'right';
     if (player.d == null) player.d = player.direction;
     if (player.mass == null) player.mass = player.ghost ? 0 : 80;
+    if (!player.specialty) player.specialty = 'crew';
     player.dead = player.ghost ? false : !alive;
     return player;
   }
 
   function normalizeSeat(seat) {
     var source = seat || {};
-    var occupantId = source.occupantId || source.playerId || null;
+    var occupantId = seatOccupant(source);
     state.pilotSeat = Object.assign({}, source, {
       seatId: source.seatId || 'pilot',
       occupantId: occupantId,
@@ -307,6 +318,19 @@ window.RTM.Net = (function () {
       dispatchTelemetry();
     },
 
+    setSpecialty: function (data) {
+      var local = state.players[playerId];
+      if (!local) return;
+      var specialty = data && data.specialty;
+      if (!specialty) return;
+      local.specialty = specialty;
+      dispatch('player:specialty', {
+        playerId: playerId,
+        player: local,
+        specialty: specialty
+      });
+      dispatch('room:updated', state.room);
+    },
     recompute: function () {
       var ids = Object.keys(state.players);
       var alive = 0;
@@ -319,10 +343,11 @@ window.RTM.Net = (function () {
       t.payloadMass = payload.mass;
       t.foodMass = Number(state.settings.foodMass) || 0;
       t.o2Mass = Number(state.settings.o2Mass) || 0;
+      t.fuelMass = Math.max(50, Math.min(400, Number(state.settings.fuelMass) || 250));
       t.aliveCount = alive;
       t.crewMass = alive * 80;
       t.ghostCount = ids.length - alive;
-      t.totalMass = 270 + t.payloadMass + t.foodMass + t.o2Mass + t.crewMass;
+      t.totalMass = 270 + t.payloadMass + t.foodMass + t.o2Mass + t.fuelMass + t.crewMass;
       t.overloaded = t.totalMass > t.maxMass;
       t.massPenalty = t.overloaded ? t.totalMass / t.maxMass : 1;
       t.starving = t.food <= 0;
@@ -337,18 +362,27 @@ window.RTM.Net = (function () {
       state.settings = {
         rocket: rocket,
         sciencePayload: sciencePayload,
-        foodMass: Math.max(0, Number(data.foodMass != null ? data.foodMass : state.settings.foodMass) || 0),
-        o2Mass: Math.max(0, Number(data.o2Mass != null ? data.o2Mass : state.settings.o2Mass) || 0)
+        foodMass: Math.max(0, Math.min(500, Number(data.foodMass != null ? data.foodMass : state.settings.foodMass) || 0)),
+        o2Mass: Math.max(0, Math.min(500, Number(data.o2Mass != null ? data.o2Mass : state.settings.o2Mass) || 0)),
+        fuelMass: Math.max(50, Math.min(400, Number(data.fuelMass != null ? data.fuelMass : state.settings.fuelMass) || 250))
       };
       state.room.settings = state.settings;
       state.telemetry.launcher = rocket;
       state.telemetry.foodMass = state.settings.foodMass;
       state.telemetry.o2Mass = state.settings.o2Mass;
+      state.telemetry.fuelMass = state.settings.fuelMass;
       state.telemetry.food = state.settings.foodMass > 0 ? 100 : 0;
       state.telemetry.o2 = state.settings.o2Mass > 0 ? 100 : 0;
       state.telemetry.science = OFFLINE_PAYLOADS[sciencePayload].science;
+      state.missionUpdatedBy = playerId;
+      state.missionUpdatedByName = (state.players[playerId] && state.players[playerId].name) || 'Crew';
       offline.recompute();
-      dispatch('mission:configured', { settings: state.settings, telemetry: state.telemetry });
+      dispatch('mission:configured', {
+        settings: state.settings,
+        telemetry: state.telemetry,
+        by: playerId,
+        byName: state.missionUpdatedByName
+      });
       dispatchTelemetry();
       dispatch('room:updated', state.room);
     },
@@ -392,6 +426,7 @@ window.RTM.Net = (function () {
       state.pilotThrust = { playerId: null, throttle: 0, heading: 0 };
       state.moon = { state: 'orbit', active: false, nodes: [] };
       state.telemetry.fuel = 100;
+      state.telemetry.fuelMass = Math.max(50, Math.min(400, Number(state.settings.fuelMass) || 250));
       state.telemetry.o2 = state.settings.o2Mass > 0 ? 100 : 0;
       state.telemetry.food = state.settings.foodMass > 0 ? 100 : 0;
       state.telemetry.science = (OFFLINE_PAYLOADS[state.settings.sciencePayload] || OFFLINE_PAYLOADS.medium).science;
@@ -849,6 +884,7 @@ window.RTM.Net = (function () {
         case 'room:leave': offline.leaveRoom(); break;
         case 'room:add-bot': offline.addBot(); break;
         case 'room:remove-bot': offline.removeBot(data); break;
+        case 'player:specialty': offline.setSpecialty(data); break;
         case 'mission:configure': offline.configureMission(data); break;
         case 'game:start': offline.startGame(data); break;
         case 'player:move': offline.movePlayer(data); break;
@@ -975,6 +1011,16 @@ window.RTM.Net = (function () {
           syncRoom(data);
         }
         break;
+      case 'player:specialty':
+        if (data && data.playerId) {
+          var specialtyPlayer = state.players[data.playerId];
+          if (specialtyPlayer) {
+            specialtyPlayer.specialty = data.specialty || (data.player && data.player.specialty) || specialtyPlayer.specialty;
+          } else if (data.player) {
+            state.players[data.playerId] = normalizePlayer(data.player);
+          }
+        }
+        break;
       case 'player:left':
         if (data && data.playerId) delete state.players[data.playerId];
         break;
@@ -1008,15 +1054,16 @@ window.RTM.Net = (function () {
         if (data && data.settings) state.settings = Object.assign({}, state.settings, data.settings);
         if (data && data.telemetry) Object.assign(state.telemetry, data.telemetry);
         if (state.room && data && data.settings) state.room.settings = Object.assign({}, state.room.settings, data.settings);
+        state.missionUpdatedBy = (data && data.by) || null;
+        state.missionUpdatedByName = (data && (data.byName || (state.players[data.by] && state.players[data.by].name))) || null;
         break;
       case 'task:updated':
         syncTasks(data && data.tasks);
         if (data && data.telemetry) Object.assign(state.telemetry, data.telemetry);
         break;
       case 'pilot:seat:locked':
+        normalizeSeat((data && data.seat) || data || {});
         state.pilotSeat.locked = true;
-        state.pilotSeat.occupantId = (data && (data.occupantId || data.playerId)) || null;
-        state.pilotSeat.playerId = state.pilotSeat.occupantId;
         if (state.players[playerId]) state.players[playerId].isPilot = state.pilotSeat.occupantId === playerId;
         if (state.pilotSeat.occupantId === playerId && window.RTM && window.RTM.Cockpit && window.RTM.Cockpit._pendingAutoOpen) {
           window.RTM.Cockpit._pendingAutoOpen = false;
@@ -1140,7 +1187,9 @@ window.RTM.Net = (function () {
       moon: state.moon,
       meeting: state.meeting,
       lastMeetingResults: state.lastMeetingResults,
-      localRole: state.localRole
+      localRole: state.localRole,
+      missionUpdatedBy: state.missionUpdatedBy,
+      missionUpdatedByName: state.missionUpdatedByName
     };
   }
 
@@ -1165,7 +1214,7 @@ window.RTM.Net = (function () {
 
   function isPilot() {
     var seat = state.pilotSeat || {};
-    return seat.locked === true && (seat.playerId === playerId || seat.occupantId === playerId);
+    return seat.locked === true && (seat.occupantId === playerId || seat.playerId === playerId);
   }
 
   var api = {

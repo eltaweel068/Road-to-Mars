@@ -481,13 +481,14 @@ window.RTM.HUD = (function () {
    *  NOTIFICATIONS
    * ──────────────────────────────────────────── */
 
-  function showNotification(message, type) {
+  function showNotification(message, type, variant) {
     var ui = document.getElementById('uiLayer');
     if (!ui) return;
 
     var toast = document.createElement('div');
     toast.className = 'au-toast';
     if (type) toast.classList.add('toast-' + type);
+    if (variant) toast.classList.add('toast-' + variant);
 
     toast.textContent = message;
     ui.appendChild(toast);
